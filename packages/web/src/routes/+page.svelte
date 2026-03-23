@@ -8,8 +8,10 @@
 		getCoreRowModel,
 		getSortedRowModel,
 		getFilteredRowModel,
+		getPaginationRowModel,
 		type SortingState,
 		type ColumnFiltersState,
+		type PaginationState,
 	} from "@tanstack/svelte-table";
 	import * as Table from "$lib/components/ui/table";
 	import * as Select from "$lib/components/ui/select";
@@ -34,6 +36,9 @@
 	let searchInput = $state<HTMLInputElement | null>(null);
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let typeFilter = $state<string>("all");
+	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 50 });
+
+	const PAGE_SIZES = [25, 50, 100];
 	let cachedAt = $state<string | null>(null);
 	let freshnessText = $state("");
 	let freshnessInterval: ReturnType<typeof setInterval> | undefined;
@@ -65,6 +70,7 @@
 		clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
 			globalFilter = value;
+			pagination = { ...pagination, pageIndex: 0 };
 		}, 250);
 	}
 
@@ -151,6 +157,7 @@
 			const existing = columnFilters.filter((f) => f.id !== "type");
 			columnFilters = [...existing, { id: "type", value: filter.apiValue }];
 		}
+		pagination = { ...pagination, pageIndex: 0 };
 	}
 
 	const colHelper = createColumnHelper<PriceItem>();
@@ -208,6 +215,9 @@
 			get columnFilters() {
 				return columnFilters;
 			},
+			get pagination() {
+				return pagination;
+			},
 		},
 		onSortingChange(updater) {
 			sorting = typeof updater === "function" ? updater(sorting) : updater;
@@ -217,6 +227,9 @@
 		},
 		onColumnFiltersChange(updater) {
 			columnFilters = typeof updater === "function" ? updater(columnFilters) : updater;
+		},
+		onPaginationChange(updater) {
+			pagination = typeof updater === "function" ? updater(pagination) : updater;
 		},
 		globalFilterFn: (row, _columnId, filterValue) => {
 			const search = filterValue.toLowerCase();
@@ -228,6 +241,7 @@
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		getFilteredRowModel: getFilteredRowModel(),
+		getPaginationRowModel: getPaginationRowModel(),
 	});
 
 	function ariaSortValue(columnId: string): "ascending" | "descending" | "none" | undefined {
@@ -373,6 +387,7 @@
 					{/each}
 				</div>
 			</div>
+			<div class="space-y-4">
 			<div class="rounded-lg border border-border">
 				<Table.Root>
 					<Table.Header>
@@ -435,6 +450,45 @@
 						{/each}
 					</Table.Body>
 				</Table.Root>
+			</div>
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-muted-foreground">Rows per page</span>
+					<Select.Root
+						type="single"
+						value={String(pagination.pageSize)}
+						onValueChange={(v) => {
+							if (v) pagination = { pageIndex: 0, pageSize: Number(v) };
+						}}
+					>
+						<Select.Trigger class="h-8 w-[70px]">
+							<span data-slot="select-value">{pagination.pageSize}</span>
+						</Select.Trigger>
+						<Select.Content>
+							{#each PAGE_SIZES as size}
+								<Select.Item value={String(size)}>{size}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-muted-foreground">
+						Page {pagination.pageIndex + 1} of {table.getPageCount()}
+					</span>
+					<Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onclick={() => table.firstPage()}>
+						&#171;
+					</Button>
+					<Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onclick={() => table.previousPage()}>
+						&#8249;
+					</Button>
+					<Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onclick={() => table.nextPage()}>
+						&#8250;
+					</Button>
+					<Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onclick={() => table.lastPage()}>
+						&#187;
+					</Button>
+				</div>
+			</div>
 			</div>
 		{/if}
 	</main>
