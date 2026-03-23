@@ -16,6 +16,12 @@ export class TTLCache {
     return entry.data as T;
   }
 
+  /** Returns data even if expired (for stale-while-revalidate). */
+  getStale<T>(key: string): T | null {
+    const entry = this.store.get(key);
+    return entry ? (entry.data as T) : null;
+  }
+
   set<T>(key: string, data: T, ttlSeconds: number): void {
     this.store.set(key, {
       data,

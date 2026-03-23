@@ -17,6 +17,8 @@ export interface CurrencyData {
 export interface PriceResponse {
   items: PriceItem[];
   cachedAt: string;
+  warnings?: string[];
+  stale?: boolean;
 }
 
 export async function fetchPrices(

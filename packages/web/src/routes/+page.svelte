@@ -41,6 +41,8 @@
 	const PAGE_SIZES = [25, 50, 100];
 	let cachedAt = $state<string | null>(null);
 	let freshnessText = $state("");
+	let warnings = $state<string[]>([]);
+	let stale = $state(false);
 	let freshnessInterval: ReturnType<typeof setInterval> | undefined;
 
 	// Debounced search
@@ -95,6 +97,8 @@
 			const res = await fetchPrices(selectedLeague, force);
 			items = res.items;
 			cachedAt = res.cachedAt;
+			warnings = res.warnings ?? [];
+			stale = res.stale ?? false;
 			updateFreshness();
 		} catch (err) {
 			error = err instanceof Error ? err.message : "Unknown error";
@@ -339,6 +343,16 @@
 		{:else if items.length === 0}
 			<p class="text-muted-foreground py-10 text-center">No items found.</p>
 		{:else}
+			{#if warnings.length > 0}
+				<div class="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
+					{#if stale}
+						<p class="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-1">Showing stale data</p>
+					{/if}
+					{#each warnings as warning}
+						<p class="text-sm text-yellow-700 dark:text-yellow-400">{warning}</p>
+					{/each}
+				</div>
+			{/if}
 			{@const counts = typeCounts(items)}
 			<div class="mb-4 flex flex-col gap-3">
 				<div class="flex items-center gap-4">

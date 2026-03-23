@@ -20,6 +20,22 @@ const ITEM_TYPES: AllowedUnique[] = [
 const USER_AGENT = "poe-local-tool/1.0";
 const PRICES_TTL = 30 * 60; // 30 minutes
 const CURRENCY_TTL = 24 * 60 * 60; // 1 day
+const MAX_RETRIES = 3;
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = MAX_RETRIES
+): Promise<T> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === retries - 1) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+    }
+  }
+  throw new Error("Unreachable");
+}
 
 async function fetchItemOverview(
   type: AllowedUnique,
@@ -59,7 +75,12 @@ function stripDetailsId({ detailsId, ...item }: InternalPriceItem): PriceItem {
 
 export const pricesRouter = new Hono();
 
-type CachedPrices = { items: PriceItem[]; cachedAt: string };
+type CachedPrices = {
+  items: PriceItem[];
+  cachedAt: string;
+  warnings?: string[];
+  stale?: boolean;
+};
 
 // GET /api/prices/:league
 pricesRouter.get("/:league", async (c) => {
@@ -80,21 +101,42 @@ pricesRouter.get("/:league", async (c) => {
     }
   }
 
-  try {
-    const results = await Promise.all(
-      ITEM_TYPES.map((type) => fetchItemOverview(type, leagueApiName))
-    );
-    const deduped = dedupeCheapestVariants(results.flat());
-    const data: CachedPrices = {
-      items: deduped.map(stripDetailsId),
-      cachedAt: new Date().toISOString(),
-    };
-    cache.set(cacheKey, data, PRICES_TTL);
-    return c.json(data);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return c.json({ error: message }, 502);
+  const results = await Promise.allSettled(
+    ITEM_TYPES.map((type) =>
+      withRetry(() => fetchItemOverview(type, leagueApiName))
+    )
+  );
+
+  const allItems: InternalPriceItem[] = [];
+  const warnings: string[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === "fulfilled") {
+      allItems.push(...result.value);
+    } else {
+      const msg = result.reason instanceof Error ? result.reason.message : "Unknown error";
+      warnings.push(`Failed to fetch ${ITEM_TYPES[i]}: ${msg}`);
+    }
   }
+
+  // All failed - try stale cache, else 502
+  if (allItems.length === 0) {
+    const stale = cache.getStale<CachedPrices>(cacheKey);
+    if (stale) {
+      return c.json({ ...stale, stale: true, warnings });
+    }
+    return c.json({ error: warnings.join("; ") }, 502);
+  }
+
+  const deduped = dedupeCheapestVariants(allItems);
+  const data: CachedPrices = {
+    items: deduped.map(stripDetailsId),
+    cachedAt: new Date().toISOString(),
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
+  cache.set(cacheKey, data, PRICES_TTL);
+  return c.json(data);
 });
 
 // GET /api/currency/:league
