@@ -270,7 +270,7 @@
 
 <div class="min-h-screen bg-background text-foreground">
 	<header class="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-		<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+		<div class="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3">
 				<h1 class="text-xl font-semibold">PoE Disenchant Tool</h1>
 				{#if freshnessText}
@@ -281,14 +281,14 @@
 				<button
 					onclick={handleRefresh}
 					disabled={loading}
-					class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+					class="inline-flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
 					aria-label="Refresh prices"
 					title="Refresh prices"
 				>
 					<span class="{loading ? 'animate-spin' : ''}">&#8635;</span>
 				</button>
 				<Select.Root type="single" value={league} onValueChange={handleLeagueChange} disabled={loading}>
-					<Select.Trigger class="w-[180px]">
+					<Select.Trigger class="w-[180px] min-h-[44px] sm:min-h-0">
 						<span data-slot="select-value">
 							{LEAGUES.find((l) => l.value === league)?.label ?? league}
 						</span>
@@ -306,7 +306,7 @@
 
 	<main class="mx-auto max-w-7xl px-4 py-6">
 		{#if loading}
-			<div class="rounded-lg border border-border" aria-live="polite" aria-busy="true">
+			<div class="overflow-x-auto rounded-lg border border-border" aria-live="polite" aria-busy="true">
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
@@ -355,8 +355,8 @@
 			{/if}
 			{@const counts = typeCounts(items)}
 			<div class="mb-4 flex flex-col gap-3">
-				<div class="flex items-center gap-4">
-					<div class="relative max-w-sm flex-1">
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+					<div class="relative flex-1 sm:max-w-sm">
 						<input
 							bind:this={searchInput}
 							type="text"
@@ -389,12 +389,12 @@
 						{/if}
 					</p>
 				</div>
-				<div class="inline-flex rounded-md border border-border" role="group">
+				<div class="inline-flex flex-wrap rounded-md border border-border" role="group">
 					{#each TYPE_FILTERS as filter}
 						{@const count = filter.apiValue ? (counts[filter.apiValue] ?? 0) : counts.all}
 						<button
 							onclick={() => setTypeFilter(filter.value)}
-							class="px-3 py-1.5 text-sm font-medium transition-colors first:rounded-l-md last:rounded-r-md {typeFilter === filter.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
+							class="min-h-[44px] px-3 py-1.5 text-sm font-medium transition-colors first:rounded-l-md last:rounded-r-md sm:min-h-0 {typeFilter === filter.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
 						>
 							{filter.label} ({count})
 						</button>
@@ -402,7 +402,7 @@
 				</div>
 			</div>
 			<div class="space-y-4">
-			<div class="rounded-lg border border-border">
+			<div class="overflow-x-auto rounded-lg border border-border">
 				<Table.Root>
 					<Table.Header>
 						{#each table.getHeaderGroups() as headerGroup}
@@ -465,7 +465,7 @@
 					</Table.Body>
 				</Table.Root>
 			</div>
-			<div class="flex items-center justify-between">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div class="flex items-center gap-2">
 					<span class="text-sm text-muted-foreground">Rows per page</span>
 					<Select.Root
