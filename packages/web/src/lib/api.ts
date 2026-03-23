@@ -14,8 +14,17 @@ export interface CurrencyData {
   divineRate: number | null;
 }
 
-export async function fetchPrices(league: string): Promise<PriceItem[]> {
-  const res = await fetch(`/api/prices/${league}`);
+export interface PriceResponse {
+  items: PriceItem[];
+  cachedAt: string;
+}
+
+export async function fetchPrices(
+  league: string,
+  force = false
+): Promise<PriceResponse> {
+  const url = `/api/prices/${league}${force ? "?force=1" : ""}`;
+  const res = await fetch(url);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Failed to fetch prices: ${res.status}`);

@@ -59,6 +59,8 @@ function stripDetailsId({ detailsId, ...item }: InternalPriceItem): PriceItem {
 
 export const pricesRouter = new Hono();
 
+type CachedPrices = { items: PriceItem[]; cachedAt: string };
+
 // GET /api/prices/:league
 pricesRouter.get("/:league", async (c) => {
   const leagueSlug = c.req.param("league");
@@ -68,10 +70,14 @@ pricesRouter.get("/:league", async (c) => {
     return c.json({ error: `Unknown league: ${leagueSlug}` }, 400);
   }
 
+  const force = c.req.query("force") === "1";
   const cacheKey = `prices:${leagueSlug}`;
-  const cached = cache.get<PriceItem[]>(cacheKey);
-  if (cached) {
-    return c.json(cached);
+
+  if (!force) {
+    const cached = cache.get<CachedPrices>(cacheKey);
+    if (cached) {
+      return c.json(cached);
+    }
   }
 
   try {
@@ -79,9 +85,12 @@ pricesRouter.get("/:league", async (c) => {
       ITEM_TYPES.map((type) => fetchItemOverview(type, leagueApiName))
     );
     const deduped = dedupeCheapestVariants(results.flat());
-    const items = deduped.map(stripDetailsId);
-    cache.set(cacheKey, items, PRICES_TTL);
-    return c.json(items);
+    const data: CachedPrices = {
+      items: deduped.map(stripDetailsId),
+      cachedAt: new Date().toISOString(),
+    };
+    cache.set(cacheKey, data, PRICES_TTL);
+    return c.json(data);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return c.json({ error: message }, 502);

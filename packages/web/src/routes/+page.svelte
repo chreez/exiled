@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
-	import { fetchPrices, type PriceItem } from "$lib/api";
+	import { fetchPrices, type PriceItem, type PriceResponse } from "$lib/api";
 	import {
 		createTable,
 		FlexRender,
@@ -29,10 +29,31 @@
 	let sorting = $state<SortingState>([]);
 	let globalFilter = $state("");
 	let searchInput = $state<HTMLInputElement | null>(null);
+	let cachedAt = $state<string | null>(null);
+	let freshnessText = $state("");
+	let freshnessInterval: ReturnType<typeof setInterval> | undefined;
 
 	// Debounced search
 	let searchText = $state("");
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function updateFreshness() {
+		if (!cachedAt) {
+			freshnessText = "";
+			return;
+		}
+		const diff = Date.now() - new Date(cachedAt).getTime();
+		const seconds = Math.floor(diff / 1000);
+		if (seconds < 60) {
+			freshnessText = "just now";
+		} else if (seconds < 3600) {
+			const mins = Math.floor(seconds / 60);
+			freshnessText = `${mins}m ago`;
+		} else {
+			const hrs = Math.floor(seconds / 3600);
+			freshnessText = `${hrs}h ago`;
+		}
+	}
 
 	function handleSearchInput(value: string) {
 		searchText = value;
@@ -56,11 +77,14 @@
 		}
 	}
 
-	async function loadPrices(selectedLeague: string) {
+	async function loadPrices(selectedLeague: string, force = false) {
 		loading = true;
 		error = null;
 		try {
-			items = await fetchPrices(selectedLeague);
+			const res = await fetchPrices(selectedLeague, force);
+			items = res.items;
+			cachedAt = res.cachedAt;
+			updateFreshness();
 		} catch (err) {
 			error = err instanceof Error ? err.message : "Unknown error";
 			items = [];
@@ -69,13 +93,19 @@
 		}
 	}
 
+	function handleRefresh() {
+		loadPrices(league, true);
+	}
+
 	onMount(() => {
 		loadPrices(league);
 		document.addEventListener("keydown", handleGlobalKeydown);
+		freshnessInterval = setInterval(updateFreshness, 15_000);
 	});
 
 	onDestroy(() => {
 		clearTimeout(debounceTimer);
+		clearInterval(freshnessInterval);
 		if (typeof document !== "undefined") {
 			document.removeEventListener("keydown", handleGlobalKeydown);
 		}
@@ -173,11 +203,25 @@
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
-	<header class="border-b border-border">
+	<header class="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 		<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-			<h1 class="text-xl font-semibold">PoE Disenchant Tool</h1>
 			<div class="flex items-center gap-3">
-				<Select.Root type="single" value={league} onValueChange={handleLeagueChange}>
+				<h1 class="text-xl font-semibold">PoE Disenchant Tool</h1>
+				{#if freshnessText}
+					<span class="text-xs text-muted-foreground">Updated {freshnessText}</span>
+				{/if}
+			</div>
+			<div class="flex items-center gap-3">
+				<button
+					onclick={handleRefresh}
+					disabled={loading}
+					class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+					aria-label="Refresh prices"
+					title="Refresh prices"
+				>
+					<span class="{loading ? 'animate-spin' : ''}">&#8635;</span>
+				</button>
+				<Select.Root type="single" value={league} onValueChange={handleLeagueChange} disabled={loading}>
 					<Select.Trigger class="w-[180px]">
 						<span data-slot="select-value">
 							{LEAGUES.find((l) => l.value === league)?.label ?? league}
