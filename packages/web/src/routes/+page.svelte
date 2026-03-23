@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { fetchPrices, type PriceItem } from "$lib/api";
+	import {
+		createTable,
+		FlexRender,
+		createColumnHelper,
+		getCoreRowModel,
+		getSortedRowModel,
+		type SortingState,
+	} from "@tanstack/svelte-table";
 	import * as Table from "$lib/components/ui/table";
 	import * as Select from "$lib/components/ui/select";
 	import { Badge } from "$lib/components/ui/badge";
@@ -17,6 +25,7 @@
 	let items = $state<PriceItem[]>([]);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+	let sorting = $state<SortingState>([]);
 
 	async function loadPrices(selectedLeague: string) {
 		loading = true;
@@ -45,6 +54,66 @@
 	function typeLabel(type: string): string {
 		return type.replace("Unique", "");
 	}
+
+	const colHelper = createColumnHelper<PriceItem>();
+
+	const columns = [
+		colHelper.accessor("icon", {
+			header: "",
+			cell: (info) => info.getValue(),
+			enableSorting: false,
+		}),
+		colHelper.accessor("name", {
+			header: "Name",
+			cell: (info) => info.getValue(),
+		}),
+		colHelper.accessor("baseType", {
+			header: "Base Type",
+			cell: (info) => info.getValue(),
+		}),
+		colHelper.accessor("type", {
+			header: "Type",
+			cell: (info) => typeLabel(info.getValue()),
+		}),
+		colHelper.accessor("chaos", {
+			header: "Chaos",
+			cell: (info) => info.getValue().toFixed(1),
+		}),
+		colHelper.accessor("divine", {
+			header: "Divine",
+			cell: (info) => info.getValue().toFixed(2),
+		}),
+		colHelper.accessor("listingCount", {
+			header: "Listings",
+			cell: (info) => info.getValue().toLocaleString(),
+		}),
+	];
+
+	const table = createTable({
+		get data() {
+			return items;
+		},
+		columns,
+		state: {
+			get sorting() {
+				return sorting;
+			},
+		},
+		onSortingChange(updater) {
+			sorting = typeof updater === "function" ? updater(sorting) : updater;
+		},
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+	});
+
+	function ariaSortValue(columnId: string): "ascending" | "descending" | "none" | undefined {
+		const sort = sorting.find((s) => s.id === columnId);
+		if (!sort) return undefined;
+		return sort.desc ? "descending" : "ascending";
+	}
+
+	const numericColumns = new Set(["chaos", "divine", "listingCount"]);
+	const rightAlignColumns = new Set(["chaos", "divine", "listingCount"]);
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
@@ -85,30 +154,71 @@
 			<div class="rounded-lg border border-border">
 				<Table.Root>
 					<Table.Header>
-						<Table.Row>
-							<Table.Head class="w-[50px]"></Table.Head>
-							<Table.Head>Name</Table.Head>
-							<Table.Head>Base Type</Table.Head>
-							<Table.Head>Type</Table.Head>
-							<Table.Head class="text-right">Chaos</Table.Head>
-							<Table.Head class="text-right">Divine</Table.Head>
-							<Table.Head class="text-right">Listings</Table.Head>
-						</Table.Row>
+						{#each table.getHeaderGroups() as headerGroup}
+							<Table.Row>
+								{#each headerGroup.headers as header}
+									<Table.Head
+										class="{header.id === 'icon' ? 'w-[50px]' : ''} {rightAlignColumns.has(header.id) ? 'text-right' : ''}"
+										aria-sort={ariaSortValue(header.id)}
+									>
+										{#if header.column.getCanSort()}
+											<button
+												class="inline-flex items-center gap-1 hover:text-foreground transition-colors -ml-1 px-1 py-0.5 rounded"
+												onclick={() => header.column.toggleSorting()}
+												onkeydown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														header.column.toggleSorting();
+													}
+												}}
+											>
+												<FlexRender content={header.column.columnDef.header} context={header.getContext()} />
+												<span class="text-muted-foreground text-xs w-4 inline-flex justify-center">
+													{#if header.column.getIsSorted() === "asc"}
+														&#9650;
+													{:else if header.column.getIsSorted() === "desc"}
+														&#9660;
+													{:else}
+														&#8693;
+													{/if}
+												</span>
+											</button>
+										{:else}
+											<FlexRender content={header.column.columnDef.header} context={header.getContext()} />
+										{/if}
+									</Table.Head>
+								{/each}
+							</Table.Row>
+						{/each}
 					</Table.Header>
 					<Table.Body>
-						{#each items as item}
+						{#each table.getRowModel().rows as row}
 							<Table.Row>
-								<Table.Cell>
-									<img src={item.icon} alt={item.name} class="size-8 object-contain" loading="lazy" />
-								</Table.Cell>
-								<Table.Cell class="font-medium">{item.name}</Table.Cell>
-								<Table.Cell class="text-muted-foreground">{item.baseType}</Table.Cell>
-								<Table.Cell>
-									<Badge variant="secondary">{typeLabel(item.type)}</Badge>
-								</Table.Cell>
-								<Table.Cell class="text-right">{item.chaos.toFixed(1)}</Table.Cell>
-								<Table.Cell class="text-right">{item.divine.toFixed(2)}</Table.Cell>
-								<Table.Cell class="text-right">{item.listingCount}</Table.Cell>
+								{#each row.getVisibleCells() as cell}
+									{#if cell.column.id === "icon"}
+										<Table.Cell>
+											<img src={cell.getValue()} alt={row.original.name} class="size-8 object-contain" loading="lazy" />
+										</Table.Cell>
+									{:else if cell.column.id === "type"}
+										<Table.Cell>
+											<Badge variant="secondary">
+												<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+											</Badge>
+										</Table.Cell>
+									{:else if cell.column.id === "name"}
+										<Table.Cell class="font-medium">
+											<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+										</Table.Cell>
+									{:else if cell.column.id === "baseType"}
+										<Table.Cell class="text-muted-foreground">
+											<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+										</Table.Cell>
+									{:else}
+										<Table.Cell class="{rightAlignColumns.has(cell.column.id) ? 'text-right' : ''} {numericColumns.has(cell.column.id) ? 'tabular-nums' : ''}">
+											<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+										</Table.Cell>
+									{/if}
+								{/each}
 							</Table.Row>
 						{/each}
 					</Table.Body>
