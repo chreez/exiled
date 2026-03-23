@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import { fetchPrices, type PriceItem } from "$lib/api";
 	import {
 		createTable,
@@ -7,6 +7,7 @@
 		createColumnHelper,
 		getCoreRowModel,
 		getSortedRowModel,
+		getFilteredRowModel,
 		type SortingState,
 	} from "@tanstack/svelte-table";
 	import * as Table from "$lib/components/ui/table";
@@ -26,6 +27,34 @@
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let sorting = $state<SortingState>([]);
+	let globalFilter = $state("");
+	let searchInput = $state<HTMLInputElement | null>(null);
+
+	// Debounced search
+	let searchText = $state("");
+	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function handleSearchInput(value: string) {
+		searchText = value;
+		clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(() => {
+			globalFilter = value;
+		}, 250);
+	}
+
+	function clearSearch() {
+		searchText = "";
+		globalFilter = "";
+		clearTimeout(debounceTimer);
+		searchInput?.blur();
+	}
+
+	function handleGlobalKeydown(e: KeyboardEvent) {
+		if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
+			e.preventDefault();
+			searchInput?.focus();
+		}
+	}
 
 	async function loadPrices(selectedLeague: string) {
 		loading = true;
@@ -42,6 +71,14 @@
 
 	onMount(() => {
 		loadPrices(league);
+		document.addEventListener("keydown", handleGlobalKeydown);
+	});
+
+	onDestroy(() => {
+		clearTimeout(debounceTimer);
+		if (typeof document !== "undefined") {
+			document.removeEventListener("keydown", handleGlobalKeydown);
+		}
 	});
 
 	function handleLeagueChange(value: string | undefined) {
@@ -62,6 +99,7 @@
 			header: "",
 			cell: (info) => info.getValue(),
 			enableSorting: false,
+			enableGlobalFilter: false,
 		}),
 		colHelper.accessor("name", {
 			header: "Name",
@@ -74,18 +112,22 @@
 		colHelper.accessor("type", {
 			header: "Type",
 			cell: (info) => typeLabel(info.getValue()),
+			enableGlobalFilter: false,
 		}),
 		colHelper.accessor("chaos", {
 			header: "Chaos",
 			cell: (info) => info.getValue().toFixed(1),
+			enableGlobalFilter: false,
 		}),
 		colHelper.accessor("divine", {
 			header: "Divine",
 			cell: (info) => info.getValue().toFixed(2),
+			enableGlobalFilter: false,
 		}),
 		colHelper.accessor("listingCount", {
 			header: "Listings",
 			cell: (info) => info.getValue().toLocaleString(),
+			enableGlobalFilter: false,
 		}),
 	];
 
@@ -98,12 +140,26 @@
 			get sorting() {
 				return sorting;
 			},
+			get globalFilter() {
+				return globalFilter;
+			},
 		},
 		onSortingChange(updater) {
 			sorting = typeof updater === "function" ? updater(sorting) : updater;
 		},
+		onGlobalFilterChange(updater) {
+			globalFilter = typeof updater === "function" ? updater(globalFilter) : updater;
+		},
+		globalFilterFn: (row, _columnId, filterValue) => {
+			const search = filterValue.toLowerCase();
+			return (
+				row.original.name.toLowerCase().includes(search) ||
+				row.original.baseType.toLowerCase().includes(search)
+			);
+		},
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
+		getFilteredRowModel: getFilteredRowModel(),
 	});
 
 	function ariaSortValue(columnId: string): "ascending" | "descending" | "none" | undefined {
@@ -150,7 +206,40 @@
 		{:else if items.length === 0}
 			<p class="text-muted-foreground py-10 text-center">No items found.</p>
 		{:else}
-			<p class="text-muted-foreground mb-4 text-sm">{items.length} items loaded</p>
+			<div class="mb-4 flex items-center gap-4">
+				<div class="relative max-w-sm flex-1">
+					<input
+						bind:this={searchInput}
+						type="text"
+						placeholder="Filter by name... ( / )"
+						value={searchText}
+						oninput={(e) => handleSearchInput(e.currentTarget.value)}
+						onkeydown={(e) => {
+							if (e.key === "Escape") {
+								e.preventDefault();
+								clearSearch();
+							}
+						}}
+						class="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+					/>
+					{#if searchText}
+						<button
+							onclick={clearSearch}
+							class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+							aria-label="Clear search"
+						>
+							&#10005;
+						</button>
+					{/if}
+				</div>
+				<p class="text-muted-foreground text-sm">
+					{#if globalFilter}
+						Showing {table.getRowModel().rows.length} of {items.length} items
+					{:else}
+						{items.length} items
+					{/if}
+				</p>
+			</div>
 			<div class="rounded-lg border border-border">
 				<Table.Root>
 					<Table.Header>
