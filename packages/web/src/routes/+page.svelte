@@ -9,6 +9,7 @@
 		getSortedRowModel,
 		getFilteredRowModel,
 		type SortingState,
+		type ColumnFiltersState,
 	} from "@tanstack/svelte-table";
 	import * as Table from "$lib/components/ui/table";
 	import * as Select from "$lib/components/ui/select";
@@ -29,6 +30,8 @@
 	let sorting = $state<SortingState>([]);
 	let globalFilter = $state("");
 	let searchInput = $state<HTMLInputElement | null>(null);
+	let columnFilters = $state<ColumnFiltersState>([]);
+	let typeFilter = $state<string>("all");
 	let cachedAt = $state<string | null>(null);
 	let freshnessText = $state("");
 	let freshnessInterval: ReturnType<typeof setInterval> | undefined;
@@ -122,6 +125,32 @@
 		return type.replace("Unique", "");
 	}
 
+	const TYPE_FILTERS = [
+		{ value: "all", label: "All", apiValue: null },
+		{ value: "weapon", label: "Weapons", apiValue: "UniqueWeapon" },
+		{ value: "armour", label: "Armour", apiValue: "UniqueArmour" },
+		{ value: "accessory", label: "Accessories", apiValue: "UniqueAccessory" },
+	] as const;
+
+	function typeCounts(allItems: PriceItem[]) {
+		const counts: Record<string, number> = { all: allItems.length };
+		for (const item of allItems) {
+			counts[item.type] = (counts[item.type] ?? 0) + 1;
+		}
+		return counts;
+	}
+
+	function setTypeFilter(value: string) {
+		typeFilter = value;
+		const filter = TYPE_FILTERS.find((f) => f.value === value);
+		if (!filter || !filter.apiValue) {
+			columnFilters = columnFilters.filter((f) => f.id !== "type");
+		} else {
+			const existing = columnFilters.filter((f) => f.id !== "type");
+			columnFilters = [...existing, { id: "type", value: filter.apiValue }];
+		}
+	}
+
 	const colHelper = createColumnHelper<PriceItem>();
 
 	const columns = [
@@ -143,6 +172,7 @@
 			header: "Type",
 			cell: (info) => typeLabel(info.getValue()),
 			enableGlobalFilter: false,
+			filterFn: "equals",
 		}),
 		colHelper.accessor("chaos", {
 			header: "Chaos",
@@ -173,12 +203,18 @@
 			get globalFilter() {
 				return globalFilter;
 			},
+			get columnFilters() {
+				return columnFilters;
+			},
 		},
 		onSortingChange(updater) {
 			sorting = typeof updater === "function" ? updater(sorting) : updater;
 		},
 		onGlobalFilterChange(updater) {
 			globalFilter = typeof updater === "function" ? updater(globalFilter) : updater;
+		},
+		onColumnFiltersChange(updater) {
+			columnFilters = typeof updater === "function" ? updater(columnFilters) : updater;
 		},
 		globalFilterFn: (row, _columnId, filterValue) => {
 			const search = filterValue.toLowerCase();
@@ -250,39 +286,53 @@
 		{:else if items.length === 0}
 			<p class="text-muted-foreground py-10 text-center">No items found.</p>
 		{:else}
-			<div class="mb-4 flex items-center gap-4">
-				<div class="relative max-w-sm flex-1">
-					<input
-						bind:this={searchInput}
-						type="text"
-						placeholder="Filter by name... ( / )"
-						value={searchText}
-						oninput={(e) => handleSearchInput(e.currentTarget.value)}
-						onkeydown={(e) => {
-							if (e.key === "Escape") {
-								e.preventDefault();
-								clearSearch();
-							}
-						}}
-						class="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-					/>
-					{#if searchText}
-						<button
-							onclick={clearSearch}
-							class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-							aria-label="Clear search"
-						>
-							&#10005;
-						</button>
-					{/if}
+			{@const counts = typeCounts(items)}
+			<div class="mb-4 flex flex-col gap-3">
+				<div class="flex items-center gap-4">
+					<div class="relative max-w-sm flex-1">
+						<input
+							bind:this={searchInput}
+							type="text"
+							placeholder="Filter by name... ( / )"
+							value={searchText}
+							oninput={(e) => handleSearchInput(e.currentTarget.value)}
+							onkeydown={(e) => {
+								if (e.key === "Escape") {
+									e.preventDefault();
+									clearSearch();
+								}
+							}}
+							class="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+						/>
+						{#if searchText}
+							<button
+								onclick={clearSearch}
+								class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+								aria-label="Clear search"
+							>
+								&#10005;
+							</button>
+						{/if}
+					</div>
+					<p class="text-muted-foreground text-sm whitespace-nowrap">
+						{#if globalFilter || typeFilter !== "all"}
+							Showing {table.getRowModel().rows.length} of {items.length} items
+						{:else}
+							{items.length} items
+						{/if}
+					</p>
 				</div>
-				<p class="text-muted-foreground text-sm">
-					{#if globalFilter}
-						Showing {table.getRowModel().rows.length} of {items.length} items
-					{:else}
-						{items.length} items
-					{/if}
-				</p>
+				<div class="inline-flex rounded-md border border-border" role="group">
+					{#each TYPE_FILTERS as filter}
+						{@const count = filter.apiValue ? (counts[filter.apiValue] ?? 0) : counts.all}
+						<button
+							onclick={() => setTypeFilter(filter.value)}
+							class="px-3 py-1.5 text-sm font-medium transition-colors first:rounded-l-md last:rounded-r-md {typeFilter === filter.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
+						>
+							{filter.label} ({count})
+						</button>
+					{/each}
+				</div>
 			</div>
 			<div class="rounded-lg border border-border">
 				<Table.Root>

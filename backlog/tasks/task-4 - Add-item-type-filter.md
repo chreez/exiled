@@ -1,9 +1,11 @@
 ---
 id: TASK-4
 title: Add item type filter
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-03-23 03:46'
+updated_date: '2026-03-23 04:12'
 labels:
   - filters
 dependencies:
@@ -28,7 +30,29 @@ Implementation:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Segmented control filters by item type
-- [ ] #2 Shows count per type
-- [ ] #3 Combinable with text search filter
+- [x] #1 Segmented control filters by item type
+- [x] #2 Shows count per type
+- [x] #3 Combinable with text search filter
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add column filter state for type column
+2. Add segmented button group below search
+3. Show per-type counts from raw items array
+4. Integrate with TanStack column filtering
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Added item type segmented control filter.
+
+Changes:
+- Segmented button group: All / Weapons / Armour / Accessories
+- Per-type counts shown in labels
+- Integrates with TanStack column filters on type field
+- Combinable with text search (both filters apply simultaneously)
+- Item count display reflects both filters
+<!-- SECTION:FINAL_SUMMARY:END -->
