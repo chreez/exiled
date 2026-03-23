@@ -236,6 +236,16 @@
 
 	const numericColumns = new Set(["chaos", "divine", "listingCount"]);
 	const rightAlignColumns = new Set(["chaos", "divine", "listingCount"]);
+
+	const TYPE_BADGE_CLASSES: Record<string, string> = {
+		UniqueWeapon: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25",
+		UniqueArmour: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25",
+		UniqueAccessory: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/25",
+	};
+
+	const numFmt = new Intl.NumberFormat();
+	const chaosFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+	const divineFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
@@ -375,33 +385,23 @@
 						{/each}
 					</Table.Header>
 					<Table.Body>
-						{#each table.getRowModel().rows as row}
-							<Table.Row>
-								{#each row.getVisibleCells() as cell}
-									{#if cell.column.id === "icon"}
-										<Table.Cell>
-											<img src={cell.getValue()} alt={row.original.name} class="size-8 object-contain" loading="lazy" />
-										</Table.Cell>
-									{:else if cell.column.id === "type"}
-										<Table.Cell>
-											<Badge variant="secondary">
-												<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
-											</Badge>
-										</Table.Cell>
-									{:else if cell.column.id === "name"}
-										<Table.Cell class="font-medium">
-											<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
-										</Table.Cell>
-									{:else if cell.column.id === "baseType"}
-										<Table.Cell class="text-muted-foreground">
-											<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
-										</Table.Cell>
-									{:else}
-										<Table.Cell class="{rightAlignColumns.has(cell.column.id) ? 'text-right' : ''} {numericColumns.has(cell.column.id) ? 'tabular-nums' : ''}">
-											<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
-										</Table.Cell>
-									{/if}
-								{/each}
+						{#each table.getRowModel().rows as row, i}
+							<Table.Row class="{i % 2 === 1 ? 'bg-muted/30' : ''} hover:bg-muted/50 transition-colors">
+								<Table.Cell>
+									<div class="flex size-10 items-center justify-center rounded-md border border-border bg-muted/40">
+										<img src={row.original.icon} alt={row.original.name} class="size-8 object-contain" loading="lazy" />
+									</div>
+								</Table.Cell>
+								<Table.Cell class="font-semibold">{row.original.name}</Table.Cell>
+								<Table.Cell class="text-muted-foreground text-sm">{row.original.baseType}</Table.Cell>
+								<Table.Cell>
+									<Badge variant="outline" class={TYPE_BADGE_CLASSES[row.original.type] ?? ""}>
+										{typeLabel(row.original.type)}
+									</Badge>
+								</Table.Cell>
+								<Table.Cell class="text-right font-medium tabular-nums">{chaosFmt.format(row.original.chaos)}</Table.Cell>
+								<Table.Cell class="text-right text-muted-foreground tabular-nums">{divineFmt.format(row.original.divine)}</Table.Cell>
+								<Table.Cell class="text-right tabular-nums">{numFmt.format(row.original.listingCount)}</Table.Cell>
 							</Table.Row>
 						{/each}
 					</Table.Body>
