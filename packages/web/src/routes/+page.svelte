@@ -14,6 +14,8 @@
 	import * as Table from "$lib/components/ui/table";
 	import * as Select from "$lib/components/ui/select";
 	import { Badge } from "$lib/components/ui/badge";
+	import { Skeleton } from "$lib/components/ui/skeleton";
+	import { Button } from "$lib/components/ui/button";
 	import ThemeToggle from "$lib/components/ThemeToggle.svelte";
 
 	const LEAGUES = [
@@ -286,12 +288,39 @@
 
 	<main class="mx-auto max-w-7xl px-4 py-6">
 		{#if loading}
-			<div class="flex items-center justify-center py-20">
-				<p class="text-muted-foreground">Loading prices...</p>
+			<div class="rounded-lg border border-border" aria-live="polite" aria-busy="true">
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head class="w-[50px]"></Table.Head>
+							<Table.Head>Name</Table.Head>
+							<Table.Head>Base Type</Table.Head>
+							<Table.Head>Type</Table.Head>
+							<Table.Head class="text-right">Chaos</Table.Head>
+							<Table.Head class="text-right">Divine</Table.Head>
+							<Table.Head class="text-right">Listings</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each Array(10) as _, i}
+							<Table.Row class="{i % 2 === 1 ? 'bg-muted/30' : ''}">
+								<Table.Cell><Skeleton class="size-10 rounded-md" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-4 w-32" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-4 w-24" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-16 rounded-full" /></Table.Cell>
+								<Table.Cell class="text-right"><Skeleton class="ml-auto h-4 w-14" /></Table.Cell>
+								<Table.Cell class="text-right"><Skeleton class="ml-auto h-4 w-12" /></Table.Cell>
+								<Table.Cell class="text-right"><Skeleton class="ml-auto h-4 w-10" /></Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
 			</div>
 		{:else if error}
-			<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-				<p class="text-destructive">{error}</p>
+			<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center" aria-live="polite">
+				<p class="text-destructive text-lg font-medium mb-2">Failed to load prices</p>
+				<p class="text-destructive/80 text-sm mb-4">{error}</p>
+				<Button variant="destructive" onclick={() => loadPrices(league)}>Try Again</Button>
 			</div>
 		{:else if items.length === 0}
 			<p class="text-muted-foreground py-10 text-center">No items found.</p>

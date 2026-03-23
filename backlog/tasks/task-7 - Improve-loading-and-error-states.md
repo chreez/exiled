@@ -1,9 +1,11 @@
 ---
 id: TASK-7
 title: Improve loading and error states
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-03-23 03:46'
+updated_date: '2026-03-23 04:14'
 labels:
   - layout
 dependencies: []
@@ -32,7 +34,29 @@ Also add:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Loading shows skeleton table rows with animation
-- [ ] #2 Error state has retry button
-- [ ] #3 League selector disabled during loading
+- [x] #1 Loading shows skeleton table rows with animation
+- [x] #2 Error state has retry button
+- [x] #3 League selector disabled during loading
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add skeleton component (shimmer rows matching table layout)
+2. Replace loading text with skeleton table
+3. Add retry button to error state
+4. League selector already disabled (done in task-5), verify
+5. Add aria-live regions
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Replaced plain loading/error states with polished UI.
+
+Changes:
+- Loading: 10 skeleton rows matching exact table layout with pulse animation
+- Error: styled card with error message, details, and "Try Again" button
+- Added aria-live regions for screen readers
+- League selector disabled during loading (already from task-5)
+<!-- SECTION:FINAL_SUMMARY:END -->
