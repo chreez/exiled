@@ -296,9 +296,9 @@
 								</div>
 								<div>
 									{#if port.avg_chaos_per_tattoo !== null}
-										<p class="text-2xl font-bold tabular-nums">{chaosFmt.format(port.avg_chaos_per_tattoo)} <span class="text-sm font-normal text-muted-foreground">chaos/tattoo</span></p>
+										<p class="text-2xl font-bold tabular-nums text-amber-500 dark:text-amber-400">{chaosFmt.format(port.avg_chaos_per_tattoo)} <span class="text-sm font-normal text-muted-foreground">chaos/tattoo</span></p>
 										{#if port.avg_divine_per_tattoo !== null}
-											<p class="text-sm text-muted-foreground tabular-nums">{divineFmt.format(port.avg_divine_per_tattoo)} divine/tattoo</p>
+											<p class="text-sm text-amber-600/70 dark:text-amber-500/70 tabular-nums">{divineFmt.format(port.avg_divine_per_tattoo)} divine/tattoo</p>
 										{/if}
 									{:else}
 										<p class="text-lg text-muted-foreground">No price data</p>
@@ -313,7 +313,7 @@
 											<div class="flex items-center justify-between">
 												<span class="truncate pr-2">{tattoo.tattoo_name.replace("Tattoo of the ", "")}</span>
 												{#if tattoo.chaos_value !== null}
-													<span class="tabular-nums font-medium shrink-0">{chaosFmt.format(tattoo.chaos_value)}c</span>
+													<span class="tabular-nums font-medium shrink-0 text-amber-500 dark:text-amber-400">{chaosFmt.format(tattoo.chaos_value)}c</span>
 												{:else}
 													<span class="text-muted-foreground italic shrink-0">negligible</span>
 												{/if}
@@ -404,9 +404,9 @@
 								</div>
 								<div>
 									{#if port.avg_chaos_per_runegraft !== null}
-										<p class="text-2xl font-bold tabular-nums">{chaosFmt.format(port.avg_chaos_per_runegraft)} <span class="text-sm font-normal text-muted-foreground">chaos/runegraft</span></p>
+										<p class="text-2xl font-bold tabular-nums text-amber-500 dark:text-amber-400">{chaosFmt.format(port.avg_chaos_per_runegraft)} <span class="text-sm font-normal text-muted-foreground">chaos/runegraft</span></p>
 										{#if port.avg_divine_per_runegraft !== null}
-											<p class="text-sm text-muted-foreground tabular-nums">{divineFmt.format(port.avg_divine_per_runegraft)} divine/runegraft</p>
+											<p class="text-sm text-amber-600/70 dark:text-amber-500/70 tabular-nums">{divineFmt.format(port.avg_divine_per_runegraft)} divine/runegraft</p>
 										{/if}
 									{:else}
 										<p class="text-lg text-muted-foreground">No price data</p>
@@ -421,7 +421,7 @@
 											<div class="flex items-center justify-between">
 												<span class="truncate pr-2">{runegraft.runegraft_name.replace("Runegraft of the ", "").replace("Runegraft of ", "")}</span>
 												{#if runegraft.chaos_value !== null}
-													<span class="tabular-nums font-medium shrink-0">{chaosFmt.format(runegraft.chaos_value)}c</span>
+													<span class="tabular-nums font-medium shrink-0 text-amber-500 dark:text-amber-400">{chaosFmt.format(runegraft.chaos_value)}c</span>
 												{:else}
 													<span class="text-muted-foreground italic shrink-0">negligible</span>
 												{/if}
