@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n server,web -c blue,green \"pnpm --filter server dev\" \"pnpm --filter web dev\""
+    "dev": "concurrently -n server,web -c blue,green \"pnpm --filter server dev\" \"pnpm --filter web dev\"",
+    "snapshot": "bash scripts/snapshot.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
