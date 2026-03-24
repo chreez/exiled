@@ -296,7 +296,7 @@
 								</div>
 								<div>
 									{#if port.avg_chaos_per_tattoo !== null}
-										<p class="text-2xl font-bold tabular-nums text-amber-500 dark:text-amber-400">{chaosFmt.format(port.avg_chaos_per_tattoo)} <span class="text-sm font-normal text-muted-foreground">chaos/tattoo</span></p>
+										<p class="text-2xl font-bold tabular-nums text-amber-500 dark:text-amber-400">{chaosFmt.format(port.avg_chaos_per_tattoo)} <span class="text-sm font-normal">chaos/tattoo</span></p>
 										{#if port.avg_divine_per_tattoo !== null}
 											<p class="text-sm text-amber-600/70 dark:text-amber-500/70 tabular-nums">{divineFmt.format(port.avg_divine_per_tattoo)} divine/tattoo</p>
 										{/if}
@@ -404,7 +404,7 @@
 								</div>
 								<div>
 									{#if port.avg_chaos_per_runegraft !== null}
-										<p class="text-2xl font-bold tabular-nums text-amber-500 dark:text-amber-400">{chaosFmt.format(port.avg_chaos_per_runegraft)} <span class="text-sm font-normal text-muted-foreground">chaos/runegraft</span></p>
+										<p class="text-2xl font-bold tabular-nums text-amber-500 dark:text-amber-400">{chaosFmt.format(port.avg_chaos_per_runegraft)} <span class="text-sm font-normal">chaos/runegraft</span></p>
 										{#if port.avg_divine_per_runegraft !== null}
 											<p class="text-sm text-amber-600/70 dark:text-amber-500/70 tabular-nums">{divineFmt.format(port.avg_divine_per_runegraft)} divine/runegraft</p>
 										{/if}
