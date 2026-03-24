@@ -11,7 +11,7 @@
 	import { Badge } from "$lib/components/ui/badge";
 	import { Skeleton } from "$lib/components/ui/skeleton";
 	import { Button } from "$lib/components/ui/button";
-	import ThemeToggle from "$lib/components/ThemeToggle.svelte";
+
 
 	const LEAGUES = [
 		{ value: "mirage", label: "Mirage" },
@@ -202,7 +202,6 @@
 						</Select.Content>
 					</Select.Root>
 				{/if}
-				<ThemeToggle />
 			</div>
 		</div>
 	</header>
