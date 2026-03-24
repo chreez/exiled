@@ -1,19 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
-	import { fetchPrices, type PriceItem, type PriceResponse } from "$lib/api";
 	import {
-		createTable,
-		FlexRender,
-		createColumnHelper,
-		getCoreRowModel,
-		getSortedRowModel,
-		getFilteredRowModel,
-		getPaginationRowModel,
-		type SortingState,
-		type ColumnFiltersState,
-		type PaginationState,
-	} from "@tanstack/svelte-table";
-	import * as Table from "$lib/components/ui/table";
+		fetchTattoos,
+		fetchRunegrafts,
+		getSnapshotInfo,
+		type TattooResponse,
+		type RunegraftResponse,
+	} from "$lib/api";
 	import * as Select from "$lib/components/ui/select";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Skeleton } from "$lib/components/ui/skeleton";
@@ -27,27 +20,62 @@
 		{ value: "hardcore", label: "Hardcore" },
 	];
 
-	let league = $state("mirage");
-	let items = $state<PriceItem[]>([]);
-	let loading = $state(false);
-	let error = $state<string | null>(null);
-	let sorting = $state<SortingState>([]);
-	let globalFilter = $state("");
-	let searchInput = $state<HTMLInputElement | null>(null);
-	let columnFilters = $state<ColumnFiltersState>([]);
-	let typeFilter = $state<string>("all");
-	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 50 });
+	const ATTRIBUTE_COLORS: Record<string, string> = {
+		INT: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25",
+		DEX: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25",
+		STR: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25",
+	};
 
-	const PAGE_SIZES = [25, 50, 100];
+	type Tab = "tattoos" | "runegrafts" | "cheatsheet";
+
+	let activeTab = $state<Tab>("tattoos");
+	let league = $state("mirage");
+
+	// Tattoo state
+	let tattooData = $state<TattooResponse | null>(null);
+	let tattooLoading = $state(false);
+	let tattooError = $state<string | null>(null);
+
+	// Runegraft state
+	let runegraftData = $state<RunegraftResponse | null>(null);
+	let runegraftLoading = $state(false);
+	let runegraftError = $state<string | null>(null);
+
+	// Snapshot state
+	let snapshotActive = $state(false);
+	let snapshotDate = $state<string | null>(null);
+	let snapshotLeague = $state<string | null>(null);
+
+	function checkSnapshot() {
+		const info = getSnapshotInfo();
+		snapshotActive = info.isSnapshot;
+		snapshotDate = info.snapshotDate;
+		snapshotLeague = info.snapshotLeague;
+	}
+
+	// Shared
 	let cachedAt = $state<string | null>(null);
 	let freshnessText = $state("");
-	let warnings = $state<string[]>([]);
-	let stale = $state(false);
 	let freshnessInterval: ReturnType<typeof setInterval> | undefined;
 
-	// Debounced search
-	let searchText = $state("");
-	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+	const chaosFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+	const divineFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
+	const VISIBLE_ITEMS = 7;
+	const ITEM_ROW_HEIGHT = 46; // px per item row (name + description + padding)
+
+
+	let loading = $derived(
+		activeTab === "tattoos" ? tattooLoading
+		: activeTab === "runegrafts" ? runegraftLoading
+		: false
+	);
+	let warnings = $derived(
+		activeTab === "tattoos" ? (tattooData?.warnings ?? []) : (runegraftData?.warnings ?? [])
+	);
+	let stale = $derived(
+		activeTab === "tattoos" ? (tattooData?.stale ?? false) : (runegraftData?.stale ?? false)
+	);
 
 	function updateFreshness() {
 		if (!cachedAt) {
@@ -67,443 +95,578 @@
 		}
 	}
 
-	function handleSearchInput(value: string) {
-		searchText = value;
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => {
-			globalFilter = value;
-			pagination = { ...pagination, pageIndex: 0 };
-		}, 250);
+	function updateCachedAt() {
+		if (activeTab === "tattoos" && tattooData) {
+			cachedAt = tattooData.cachedAt;
+		} else if (activeTab === "runegrafts" && runegraftData) {
+			cachedAt = runegraftData.cachedAt;
+		} else {
+			cachedAt = null;
+		}
+		updateFreshness();
 	}
 
-	function clearSearch() {
-		searchText = "";
-		globalFilter = "";
-		clearTimeout(debounceTimer);
-		searchInput?.blur();
-	}
-
-	function handleGlobalKeydown(e: KeyboardEvent) {
-		if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
-			e.preventDefault();
-			searchInput?.focus();
+	async function loadTattoos(selectedLeague: string, force = false) {
+		tattooLoading = true;
+		tattooError = null;
+		try {
+			tattooData = await fetchTattoos(selectedLeague, force);
+		} catch (err) {
+			tattooError = err instanceof Error ? err.message : "Unknown error";
+			tattooData = null;
+		} finally {
+			tattooLoading = false;
+			checkSnapshot();
+			updateCachedAt();
 		}
 	}
 
-	async function loadPrices(selectedLeague: string, force = false) {
-		loading = true;
-		error = null;
+	async function loadRunegrafts(selectedLeague: string, force = false) {
+		runegraftLoading = true;
+		runegraftError = null;
 		try {
-			const res = await fetchPrices(selectedLeague, force);
-			items = res.items;
-			cachedAt = res.cachedAt;
-			warnings = res.warnings ?? [];
-			stale = res.stale ?? false;
-			updateFreshness();
+			runegraftData = await fetchRunegrafts(selectedLeague, force);
 		} catch (err) {
-			error = err instanceof Error ? err.message : "Unknown error";
-			items = [];
+			runegraftError = err instanceof Error ? err.message : "Unknown error";
+			runegraftData = null;
 		} finally {
-			loading = false;
+			runegraftLoading = false;
+			checkSnapshot();
+			updateCachedAt();
 		}
 	}
 
 	function handleRefresh() {
-		loadPrices(league, true);
-	}
-
-	onMount(() => {
-		loadPrices(league);
-		document.addEventListener("keydown", handleGlobalKeydown);
-		freshnessInterval = setInterval(updateFreshness, 15_000);
-	});
-
-	onDestroy(() => {
-		clearTimeout(debounceTimer);
-		clearInterval(freshnessInterval);
-		if (typeof document !== "undefined") {
-			document.removeEventListener("keydown", handleGlobalKeydown);
+		if (activeTab === "tattoos") {
+			loadTattoos(league, true);
+		} else if (activeTab === "runegrafts") {
+			loadRunegrafts(league, true);
 		}
-	});
+	}
 
 	function handleLeagueChange(value: string | undefined) {
 		if (value) {
 			league = value;
-			loadPrices(value);
+			loadTattoos(value);
+			loadRunegrafts(value);
 		}
 	}
 
-	function typeLabel(type: string): string {
-		return type.replace("Unique", "");
+	function switchTab(tab: Tab) {
+		activeTab = tab;
+		updateCachedAt();
 	}
 
-	const TYPE_FILTERS = [
-		{ value: "all", label: "All", apiValue: null },
-		{ value: "weapon", label: "Weapons", apiValue: "UniqueWeapon" },
-		{ value: "armour", label: "Armour", apiValue: "UniqueArmour" },
-		{ value: "accessory", label: "Accessories", apiValue: "UniqueAccessory" },
-	] as const;
-
-	function typeCounts(allItems: PriceItem[]) {
-		const counts: Record<string, number> = { all: allItems.length };
-		for (const item of allItems) {
-			counts[item.type] = (counts[item.type] ?? 0) + 1;
-		}
-		return counts;
-	}
-
-	function setTypeFilter(value: string) {
-		typeFilter = value;
-		const filter = TYPE_FILTERS.find((f) => f.value === value);
-		if (!filter || !filter.apiValue) {
-			columnFilters = columnFilters.filter((f) => f.id !== "type");
-		} else {
-			const existing = columnFilters.filter((f) => f.id !== "type");
-			columnFilters = [...existing, { id: "type", value: filter.apiValue }];
-		}
-		pagination = { ...pagination, pageIndex: 0 };
-	}
-
-	const colHelper = createColumnHelper<PriceItem>();
-
-	const columns = [
-		colHelper.accessor("icon", {
-			header: "",
-			cell: (info) => info.getValue(),
-			enableSorting: false,
-			enableGlobalFilter: false,
-		}),
-		colHelper.accessor("name", {
-			header: "Name",
-			cell: (info) => info.getValue(),
-		}),
-		colHelper.accessor("baseType", {
-			header: "Base Type",
-			cell: (info) => info.getValue(),
-		}),
-		colHelper.accessor("type", {
-			header: "Type",
-			cell: (info) => typeLabel(info.getValue()),
-			enableGlobalFilter: false,
-			filterFn: "equals",
-		}),
-		colHelper.accessor("chaos", {
-			header: "Chaos",
-			cell: (info) => info.getValue().toFixed(1),
-			enableGlobalFilter: false,
-		}),
-		colHelper.accessor("divine", {
-			header: "Divine",
-			cell: (info) => info.getValue().toFixed(2),
-			enableGlobalFilter: false,
-		}),
-		colHelper.accessor("listingCount", {
-			header: "Listings",
-			cell: (info) => info.getValue().toLocaleString(),
-			enableGlobalFilter: false,
-		}),
-	];
-
-	const table = createTable({
-		get data() {
-			return items;
-		},
-		columns,
-		state: {
-			get sorting() {
-				return sorting;
-			},
-			get globalFilter() {
-				return globalFilter;
-			},
-			get columnFilters() {
-				return columnFilters;
-			},
-			get pagination() {
-				return pagination;
-			},
-		},
-		onSortingChange(updater) {
-			sorting = typeof updater === "function" ? updater(sorting) : updater;
-		},
-		onGlobalFilterChange(updater) {
-			globalFilter = typeof updater === "function" ? updater(globalFilter) : updater;
-		},
-		onColumnFiltersChange(updater) {
-			columnFilters = typeof updater === "function" ? updater(columnFilters) : updater;
-		},
-		onPaginationChange(updater) {
-			pagination = typeof updater === "function" ? updater(pagination) : updater;
-		},
-		globalFilterFn: (row, _columnId, filterValue) => {
-			const search = filterValue.toLowerCase();
-			return (
-				row.original.name.toLowerCase().includes(search) ||
-				row.original.baseType.toLowerCase().includes(search)
-			);
-		},
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
+	onMount(() => {
+		loadTattoos(league);
+		loadRunegrafts(league);
+		freshnessInterval = setInterval(updateFreshness, 15_000);
 	});
 
-	function ariaSortValue(columnId: string): "ascending" | "descending" | "none" | undefined {
-		const sort = sorting.find((s) => s.id === columnId);
-		if (!sort) return undefined;
-		return sort.desc ? "descending" : "ascending";
-	}
-
-	const numericColumns = new Set(["chaos", "divine", "listingCount"]);
-	const rightAlignColumns = new Set(["chaos", "divine", "listingCount"]);
-
-	const TYPE_BADGE_CLASSES: Record<string, string> = {
-		UniqueWeapon: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25",
-		UniqueArmour: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25",
-		UniqueAccessory: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/25",
-	};
-
-	const numFmt = new Intl.NumberFormat();
-	const chaosFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-	const divineFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	onDestroy(() => {
+		clearInterval(freshnessInterval);
+	});
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
 	<header class="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-		<div class="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+		<div class="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3">
-				<h1 class="text-xl font-semibold">PoE Disenchant Tool</h1>
-				{#if freshnessText}
+				<h1 class="text-xl font-semibold">exiled<span class="text-muted-foreground">.</span></h1>
+				{#if freshnessText && activeTab !== "cheatsheet"}
 					<span class="text-xs text-muted-foreground">Updated {freshnessText}</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-3">
-				<button
-					onclick={handleRefresh}
-					disabled={loading}
-					class="inline-flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-					aria-label="Refresh prices"
-					title="Refresh prices"
-				>
-					<span class="{loading ? 'animate-spin' : ''}">&#8635;</span>
-				</button>
-				<Select.Root type="single" value={league} onValueChange={handleLeagueChange} disabled={loading}>
-					<Select.Trigger class="w-[180px] min-h-[44px] sm:min-h-0">
-						<span data-slot="select-value">
-							{LEAGUES.find((l) => l.value === league)?.label ?? league}
-						</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each LEAGUES as l}
-							<Select.Item value={l.value}>{l.label}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
+				{#if activeTab !== "cheatsheet" && !snapshotActive}
+					<button
+						onclick={handleRefresh}
+						disabled={loading}
+						class="inline-flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+						aria-label="Refresh prices"
+						title="Refresh prices"
+					>
+						<span class="{loading ? 'animate-spin' : ''}">&#8635;</span>
+					</button>
+					<Select.Root type="single" value={league} onValueChange={handleLeagueChange} disabled={loading}>
+						<Select.Trigger class="w-[180px] min-h-[44px] sm:min-h-0">
+							<span data-slot="select-value">
+								{LEAGUES.find((l) => l.value === league)?.label ?? league}
+							</span>
+						</Select.Trigger>
+						<Select.Content>
+							{#each LEAGUES as l}
+								<Select.Item value={l.value}>{l.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				{/if}
 				<ThemeToggle />
 			</div>
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-7xl px-4 py-6">
-		{#if loading}
-			<div class="overflow-x-auto rounded-lg border border-border" aria-live="polite" aria-busy="true">
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head class="w-[50px]"></Table.Head>
-							<Table.Head>Name</Table.Head>
-							<Table.Head>Base Type</Table.Head>
-							<Table.Head>Type</Table.Head>
-							<Table.Head class="text-right">Chaos</Table.Head>
-							<Table.Head class="text-right">Divine</Table.Head>
-							<Table.Head class="text-right">Listings</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each Array(10) as _, i}
-							<Table.Row class="{i % 2 === 1 ? 'bg-muted/30' : ''}">
-								<Table.Cell><Skeleton class="size-10 rounded-md" /></Table.Cell>
-								<Table.Cell><Skeleton class="h-4 w-32" /></Table.Cell>
-								<Table.Cell><Skeleton class="h-4 w-24" /></Table.Cell>
-								<Table.Cell><Skeleton class="h-5 w-16 rounded-full" /></Table.Cell>
-								<Table.Cell class="text-right"><Skeleton class="ml-auto h-4 w-14" /></Table.Cell>
-								<Table.Cell class="text-right"><Skeleton class="ml-auto h-4 w-12" /></Table.Cell>
-								<Table.Cell class="text-right"><Skeleton class="ml-auto h-4 w-10" /></Table.Cell>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
-			</div>
-		{:else if error}
-			<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center" aria-live="polite">
-				<p class="text-destructive text-lg font-medium mb-2">Failed to load prices</p>
-				<p class="text-destructive/80 text-sm mb-4">{error}</p>
-				<Button variant="destructive" onclick={() => loadPrices(league)}>Try Again</Button>
-			</div>
-		{:else if items.length === 0}
-			<p class="text-muted-foreground py-10 text-center">No items found.</p>
-		{:else}
-			{#if warnings.length > 0}
-				<div class="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
-					{#if stale}
-						<p class="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-1">Showing stale data</p>
-					{/if}
-					{#each warnings as warning}
-						<p class="text-sm text-yellow-700 dark:text-yellow-400">{warning}</p>
+	{#if snapshotActive}
+		<div class="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-700 dark:text-amber-400">
+			Viewing snapshot data from {snapshotDate ? new Date(snapshotDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "unknown date"}
+			{#if snapshotLeague}
+				<span class="text-amber-600/80 dark:text-amber-500/80">({snapshotLeague} league)</span>
+			{/if}
+		</div>
+	{/if}
+
+	<main class="mx-auto max-w-5xl px-4 py-6">
+		<!-- Tab switcher -->
+		<div class="mb-6 flex gap-1 rounded-lg border border-border bg-muted p-1 w-fit">
+			<button
+				onclick={() => switchTab("tattoos")}
+				class="rounded-md px-4 py-2 text-sm font-medium transition-colors {activeTab === 'tattoos' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+			>
+				Tattoos
+			</button>
+			<button
+				onclick={() => switchTab("runegrafts")}
+				class="rounded-md px-4 py-2 text-sm font-medium transition-colors {activeTab === 'runegrafts' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+			>
+				Runegrafts
+			</button>
+			<button
+				onclick={() => switchTab("cheatsheet")}
+				class="rounded-md px-4 py-2 text-sm font-medium transition-colors {activeTab === 'cheatsheet' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+			>
+				Cheatsheet
+			</button>
+		</div>
+
+		<!-- Tattoo tab -->
+		{#if activeTab === "tattoos"}
+			{#if tattooLoading}
+				<div class="grid gap-4 md:grid-cols-3" aria-live="polite" aria-busy="true">
+					{#each Array(3) as _}
+						<div class="rounded-lg border border-border p-4 space-y-3">
+							<div class="flex items-center justify-between">
+								<Skeleton class="h-6 w-24" />
+								<Skeleton class="h-5 w-12 rounded-full" />
+							</div>
+							<div class="space-y-1">
+								<Skeleton class="h-8 w-32" />
+								<Skeleton class="h-4 w-24" />
+							</div>
+							<div class="border-t border-border pt-3 space-y-2">
+								{#each Array(6) as _}
+									<div class="flex justify-between">
+										<Skeleton class="h-4 w-40" />
+										<Skeleton class="h-4 w-12" />
+									</div>
+								{/each}
+							</div>
+						</div>
 					{/each}
+				</div>
+			{:else if tattooError}
+				<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center" aria-live="polite">
+					<p class="text-destructive text-lg font-medium mb-2">Failed to load tattoo prices</p>
+					<p class="text-destructive/80 text-sm mb-4">{tattooError}</p>
+					<Button variant="destructive" onclick={() => loadTattoos(league)}>Try Again</Button>
+				</div>
+			{:else if tattooData}
+				{#if warnings.length > 0}
+					<div class="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
+						{#if stale}
+							<p class="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-1">Showing stale data</p>
+						{/if}
+						{#each warnings as warning}
+							<p class="text-sm text-yellow-700 dark:text-yellow-400">{warning}</p>
+						{/each}
+					</div>
+				{/if}
+
+				<div class="grid gap-4 md:grid-cols-3">
+					{#each tattooData.ports as port, rank}
+						<div class="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+							<div class="p-4 space-y-3">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<span class="text-sm font-medium text-muted-foreground">#{rank + 1}</span>
+										<h2 class="text-lg font-semibold">{port.label}</h2>
+									</div>
+									<Badge variant="outline" class={ATTRIBUTE_COLORS[port.attribute] ?? ""}>
+										{port.attribute}
+									</Badge>
+								</div>
+								<div>
+									{#if port.avg_chaos_per_tattoo !== null}
+										<p class="text-2xl font-bold tabular-nums">{chaosFmt.format(port.avg_chaos_per_tattoo)} <span class="text-sm font-normal text-muted-foreground">chaos/tattoo</span></p>
+										{#if port.avg_divine_per_tattoo !== null}
+											<p class="text-sm text-muted-foreground tabular-nums">{divineFmt.format(port.avg_divine_per_tattoo)} divine/tattoo</p>
+										{/if}
+									{:else}
+										<p class="text-lg text-muted-foreground">No price data</p>
+									{/if}
+								</div>
+							</div>
+
+							<div class="border-t border-border flex-1 overflow-y-auto snap-y snap-mandatory" style="max-height: {Math.min(port.tattoos.length, VISIBLE_ITEMS) * ITEM_ROW_HEIGHT}px">
+								<div class="divide-y divide-border">
+									{#each port.tattoos.toSorted((a, b) => (b.chaos_value ?? -1) - (a.chaos_value ?? -1)) as tattoo}
+										<div class="px-4 py-2 text-sm snap-start">
+											<div class="flex items-center justify-between">
+												<span class="truncate pr-2">{tattoo.tattoo_name.replace("Tattoo of the ", "")}</span>
+												{#if tattoo.chaos_value !== null}
+													<span class="tabular-nums font-medium shrink-0">{chaosFmt.format(tattoo.chaos_value)}c</span>
+												{:else}
+													<span class="text-muted-foreground italic shrink-0">negligible</span>
+												{/if}
+											</div>
+											{#if tattoo.description}
+												<p class="text-xs text-muted-foreground mt-0.5 truncate">{tattoo.description}</p>
+											{/if}
+										</div>
+									{/each}
+									<div class="h-2"></div>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				<p class="mt-4 text-center text-xs text-muted-foreground">
+					Drop weights assumed equal across all tattoos in pool. Actual distribution unconfirmed.
+				</p>
+
+				<div class="mt-6 rounded-lg border border-border bg-card p-4 text-sm space-y-2">
+					<h3 class="font-semibold">Tattoo Shipment Rules</h3>
+					<ul class="space-y-1 text-muted-foreground list-disc list-inside">
+						<li>1 tattoo per <span class="text-foreground font-medium tabular-nums">100,000</span> goods value (crops, ores, or bars)</li>
+						<li>Max <span class="text-foreground font-medium tabular-nums">39</span> tattoos at <span class="text-foreground font-medium tabular-nums">3,900,000</span> goods value</li>
+						<li>Dust does <span class="text-foreground font-medium">not</span> count toward tattoo allocation — add it on top for bonus currency</li>
+						<li>Aim for exact multiples of 100k to avoid wasting goods value</li>
+					</ul>
 				</div>
 			{/if}
-			{@const counts = typeCounts(items)}
-			<div class="mb-4 flex flex-col gap-3">
-				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-					<div class="relative flex-1 sm:max-w-sm">
-						<input
-							bind:this={searchInput}
-							type="text"
-							placeholder="Filter by name... ( / )"
-							value={searchText}
-							oninput={(e) => handleSearchInput(e.currentTarget.value)}
-							onkeydown={(e) => {
-								if (e.key === "Escape") {
-									e.preventDefault();
-									clearSearch();
-								}
-							}}
-							class="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-						/>
-						{#if searchText}
-							<button
-								onclick={clearSearch}
-								class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-								aria-label="Clear search"
-							>
-								&#10005;
-							</button>
-						{/if}
-					</div>
-					<p class="text-muted-foreground text-sm whitespace-nowrap">
-						{#if globalFilter || typeFilter !== "all"}
-							Showing {table.getRowModel().rows.length} of {items.length} items
-						{:else}
-							{items.length} items
-						{/if}
-					</p>
-				</div>
-				<div class="inline-flex flex-wrap rounded-md border border-border" role="group">
-					{#each TYPE_FILTERS as filter}
-						{@const count = filter.apiValue ? (counts[filter.apiValue] ?? 0) : counts.all}
-						<button
-							onclick={() => setTypeFilter(filter.value)}
-							class="min-h-[44px] px-3 py-1.5 text-sm font-medium transition-colors first:rounded-l-md last:rounded-r-md sm:min-h-0 {typeFilter === filter.value ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
-						>
-							{filter.label} ({count})
-						</button>
+		{/if}
+
+		<!-- Runegraft tab -->
+		{#if activeTab === "runegrafts"}
+			{#if runegraftLoading}
+				<div class="grid gap-4 md:grid-cols-3" aria-live="polite" aria-busy="true">
+					{#each Array(3) as _}
+						<div class="rounded-lg border border-border p-4 space-y-3">
+							<div class="flex items-center justify-between">
+								<Skeleton class="h-6 w-24" />
+								<Skeleton class="h-5 w-12 rounded-full" />
+							</div>
+							<div class="space-y-1">
+								<Skeleton class="h-8 w-32" />
+								<Skeleton class="h-4 w-24" />
+							</div>
+							<div class="border-t border-border pt-3 space-y-2">
+								{#each Array(6) as _}
+									<div class="flex justify-between">
+										<Skeleton class="h-4 w-40" />
+										<Skeleton class="h-4 w-12" />
+									</div>
+								{/each}
+							</div>
+						</div>
 					{/each}
 				</div>
-			</div>
-			<div class="space-y-4">
-			<div class="overflow-x-auto rounded-lg border border-border">
-				<Table.Root>
-					<Table.Header>
-						{#each table.getHeaderGroups() as headerGroup}
-							<Table.Row>
-								{#each headerGroup.headers as header}
-									<Table.Head
-										class="{header.id === 'icon' ? 'w-[50px]' : ''} {rightAlignColumns.has(header.id) ? 'text-right' : ''}"
-										aria-sort={ariaSortValue(header.id)}
-									>
-										{#if header.column.getCanSort()}
-											<button
-												class="inline-flex items-center gap-1 hover:text-foreground transition-colors -ml-1 px-1 py-0.5 rounded"
-												onclick={() => header.column.toggleSorting()}
-												onkeydown={(e) => {
-													if (e.key === "Enter" || e.key === " ") {
-														e.preventDefault();
-														header.column.toggleSorting();
-													}
-												}}
-											>
-												<FlexRender content={header.column.columnDef.header} context={header.getContext()} />
-												<span class="text-muted-foreground text-xs w-4 inline-flex justify-center">
-													{#if header.column.getIsSorted() === "asc"}
-														&#9650;
-													{:else if header.column.getIsSorted() === "desc"}
-														&#9660;
-													{:else}
-														&#8693;
-													{/if}
-												</span>
-											</button>
-										{:else}
-											<FlexRender content={header.column.columnDef.header} context={header.getContext()} />
-										{/if}
-									</Table.Head>
-								{/each}
-							</Table.Row>
+			{:else if runegraftError}
+				<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center" aria-live="polite">
+					<p class="text-destructive text-lg font-medium mb-2">Failed to load runegraft prices</p>
+					<p class="text-destructive/80 text-sm mb-4">{runegraftError}</p>
+					<Button variant="destructive" onclick={() => loadRunegrafts(league)}>Try Again</Button>
+				</div>
+			{:else if runegraftData}
+				{#if warnings.length > 0}
+					<div class="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
+						{#if stale}
+							<p class="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-1">Showing stale data</p>
+						{/if}
+						{#each warnings as warning}
+							<p class="text-sm text-yellow-700 dark:text-yellow-400">{warning}</p>
 						{/each}
-					</Table.Header>
-					<Table.Body>
-						{#each table.getRowModel().rows as row, i}
-							<Table.Row class="{i % 2 === 1 ? 'bg-muted/30' : ''} hover:bg-muted/50 transition-colors">
-								<Table.Cell>
-									<div class="flex size-10 items-center justify-center rounded-md border border-border bg-muted/40">
-										<img src={row.original.icon} alt={row.original.name} class="size-8 object-contain" loading="lazy" />
+					</div>
+				{/if}
+
+				<div class="grid gap-4 md:grid-cols-3">
+					{#each runegraftData.ports as port, rank}
+						<div class="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+							<div class="p-4 space-y-3">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<span class="text-sm font-medium text-muted-foreground">#{rank + 1}</span>
+										<h2 class="text-lg font-semibold">{port.label}</h2>
 									</div>
-								</Table.Cell>
-								<Table.Cell class="font-semibold">{row.original.name}</Table.Cell>
-								<Table.Cell class="text-muted-foreground text-sm">{row.original.baseType}</Table.Cell>
-								<Table.Cell>
-									<Badge variant="outline" class={TYPE_BADGE_CLASSES[row.original.type] ?? ""}>
-										{typeLabel(row.original.type)}
+									<Badge variant="outline" class={ATTRIBUTE_COLORS[port.attribute] ?? ""}>
+										{port.attribute}
 									</Badge>
-								</Table.Cell>
-								<Table.Cell class="text-right font-medium tabular-nums">{chaosFmt.format(row.original.chaos)}</Table.Cell>
-								<Table.Cell class="text-right text-muted-foreground tabular-nums">{divineFmt.format(row.original.divine)}</Table.Cell>
-								<Table.Cell class="text-right tabular-nums">{numFmt.format(row.original.listingCount)}</Table.Cell>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
-			</div>
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div class="flex items-center gap-2">
-					<span class="text-sm text-muted-foreground">Rows per page</span>
-					<Select.Root
-						type="single"
-						value={String(pagination.pageSize)}
-						onValueChange={(v) => {
-							if (v) pagination = { pageIndex: 0, pageSize: Number(v) };
-						}}
-					>
-						<Select.Trigger class="h-8 w-[70px]">
-							<span data-slot="select-value">{pagination.pageSize}</span>
-						</Select.Trigger>
-						<Select.Content>
-							{#each PAGE_SIZES as size}
-								<Select.Item value={String(size)}>{size}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
+								</div>
+								<div>
+									{#if port.avg_chaos_per_runegraft !== null}
+										<p class="text-2xl font-bold tabular-nums">{chaosFmt.format(port.avg_chaos_per_runegraft)} <span class="text-sm font-normal text-muted-foreground">chaos/runegraft</span></p>
+										{#if port.avg_divine_per_runegraft !== null}
+											<p class="text-sm text-muted-foreground tabular-nums">{divineFmt.format(port.avg_divine_per_runegraft)} divine/runegraft</p>
+										{/if}
+									{:else}
+										<p class="text-lg text-muted-foreground">No price data</p>
+									{/if}
+								</div>
+							</div>
+
+							<div class="border-t border-border flex-1 overflow-y-auto snap-y snap-mandatory" style="max-height: {Math.min(port.runegrafts.length, VISIBLE_ITEMS) * ITEM_ROW_HEIGHT}px">
+								<div class="divide-y divide-border">
+									{#each port.runegrafts.toSorted((a, b) => (b.chaos_value ?? -1) - (a.chaos_value ?? -1)) as runegraft}
+										<div class="px-4 py-2 text-sm snap-start">
+											<div class="flex items-center justify-between">
+												<span class="truncate pr-2">{runegraft.runegraft_name.replace("Runegraft of the ", "").replace("Runegraft of ", "")}</span>
+												{#if runegraft.chaos_value !== null}
+													<span class="tabular-nums font-medium shrink-0">{chaosFmt.format(runegraft.chaos_value)}c</span>
+												{:else}
+													<span class="text-muted-foreground italic shrink-0">negligible</span>
+												{/if}
+											</div>
+											{#if runegraft.description}
+												<p class="text-xs text-muted-foreground mt-0.5 truncate">{runegraft.description}</p>
+											{/if}
+										</div>
+									{/each}
+									<div class="h-2"></div>
+								</div>
+							</div>
+						</div>
+					{/each}
 				</div>
-				<div class="flex items-center gap-2">
-					<span class="text-sm text-muted-foreground">
-						Page {pagination.pageIndex + 1} of {table.getPageCount()}
-					</span>
-					<Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onclick={() => table.firstPage()}>
-						&#171;
-					</Button>
-					<Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onclick={() => table.previousPage()}>
-						&#8249;
-					</Button>
-					<Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onclick={() => table.nextPage()}>
-						&#8250;
-					</Button>
-					<Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onclick={() => table.lastPage()}>
-						&#187;
-					</Button>
+
+				<p class="mt-4 text-center text-xs text-muted-foreground">
+					Drop weights assumed equal across all runegrafts in pool. Actual distribution unconfirmed.
+				</p>
+
+				<div class="mt-6 rounded-lg border border-border bg-card overflow-hidden text-sm">
+					<div class="p-4 space-y-2">
+						<h3 class="font-semibold">Runegraft Shipment Rules</h3>
+						<ul class="space-y-1 text-muted-foreground list-disc list-inside">
+							<li>1 runegraft per <span class="text-foreground font-medium tabular-nums">400,000</span> goods value (crops, ores, or bars)</li>
+							<li>Max <span class="text-foreground font-medium tabular-nums">9</span> runegrafts at <span class="text-foreground font-medium tabular-nums">3,600,000</span> goods value</li>
+							<li>Dust does <span class="text-foreground font-medium">not</span> count toward runegraft allocation — add it on top for bonus currency</li>
+						</ul>
+					</div>
+					<div class="border-t border-border px-4 py-3">
+						<h4 class="text-xs font-medium text-muted-foreground mb-2">Breakpoints</h4>
+						<div class="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs tabular-nums max-w-sm">
+							<span class="text-muted-foreground">400,000</span><span class="font-medium">1</span><span></span>
+							<span class="text-muted-foreground">800,000</span><span class="font-medium">2</span><span></span>
+							<span class="text-muted-foreground">1,200,000</span><span class="font-medium">3</span><span></span>
+							<span class="text-muted-foreground">1,600,000</span><span class="font-medium">4</span><span></span>
+							<span class="text-muted-foreground">2,000,000</span><span class="font-medium">5</span><span></span>
+							<span class="text-muted-foreground">2,400,000</span><span class="font-medium">6</span><span></span>
+							<span class="text-muted-foreground">2,800,000</span><span class="font-medium">7</span><span></span>
+							<span class="text-muted-foreground">3,200,000</span><span class="font-medium">8</span><span></span>
+							<span class="text-muted-foreground">3,600,000</span><span class="font-medium">9</span><span class="text-muted-foreground">(max)</span>
+						</div>
+					</div>
 				</div>
-			</div>
+			{/if}
+		{/if}
+
+		<!-- Cheatsheet tab -->
+		{#if activeTab === "cheatsheet"}
+			<div class="space-y-6">
+				<!-- Shipment Values -->
+				<div class="rounded-lg border border-border bg-card overflow-hidden">
+					<div class="px-4 py-3 border-b border-border">
+						<h2 class="text-lg font-semibold">Shipment Values</h2>
+						<p class="text-sm text-muted-foreground">Per-unit value contributed to your shipment total</p>
+					</div>
+					<div class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+						<!-- Ores & Bars -->
+						<div class="p-4">
+							<h3 class="text-sm font-medium text-muted-foreground mb-3">Ores &amp; Bars</h3>
+							<table class="w-full text-sm">
+								<thead>
+									<tr class="text-left text-muted-foreground">
+										<th class="pb-2 font-medium">Resource</th>
+										<th class="pb-2 font-medium text-right">Ore</th>
+										<th class="pb-2 font-medium text-right">Bar</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y divide-border">
+									<tr><td class="py-1.5">Crimson Iron</td><td class="py-1.5 text-right tabular-nums">4</td><td class="py-1.5 text-right tabular-nums font-medium">16</td></tr>
+									<tr><td class="py-1.5">Orichalcum</td><td class="py-1.5 text-right tabular-nums">5</td><td class="py-1.5 text-right tabular-nums font-medium">22</td></tr>
+									<tr><td class="py-1.5">Petrified Amber</td><td class="py-1.5 text-right tabular-nums">7</td><td class="py-1.5 text-right tabular-nums font-medium">30</td></tr>
+									<tr><td class="py-1.5">Bismuth</td><td class="py-1.5 text-right tabular-nums">12</td><td class="py-1.5 text-right tabular-nums font-medium">50</td></tr>
+									<tr><td class="py-1.5">Verisium</td><td class="py-1.5 text-right tabular-nums">22</td><td class="py-1.5 text-right tabular-nums font-medium">90</td></tr>
+								</tbody>
+							</table>
+							<p class="mt-2 text-xs text-muted-foreground">Bars count as 5 units toward port quota fulfillment.</p>
+						</div>
+						<!-- Crops -->
+						<div class="p-4">
+							<h3 class="text-sm font-medium text-muted-foreground mb-3">Crops</h3>
+							<table class="w-full text-sm">
+								<thead>
+									<tr class="text-left text-muted-foreground">
+										<th class="pb-2 font-medium">Crop</th>
+										<th class="pb-2 font-medium text-right">Value</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y divide-border">
+									<tr><td class="py-1.5">Wheat</td><td class="py-1.5 text-right tabular-nums font-medium">12</td></tr>
+									<tr><td class="py-1.5">Corn</td><td class="py-1.5 text-right tabular-nums font-medium">15</td></tr>
+									<tr><td class="py-1.5">Pumpkin</td><td class="py-1.5 text-right tabular-nums font-medium">18</td></tr>
+									<tr><td class="py-1.5">Orgourd</td><td class="py-1.5 text-right tabular-nums font-medium">21</td></tr>
+									<tr><td class="py-1.5">Blue Zanthimum</td><td class="py-1.5 text-right tabular-nums font-medium">24</td></tr>
+								</tbody>
+							</table>
+							<p class="mt-2 text-xs text-muted-foreground">Crops return gear. Ores return currency (changed in 3.28).</p>
+						</div>
+					</div>
+				</div>
+
+				<!-- Dust Mechanics -->
+				<div class="rounded-lg border border-border bg-card overflow-hidden">
+					<div class="px-4 py-3 border-b border-border">
+						<h2 class="text-lg font-semibold">Thaumaturgic Dust</h2>
+						<p class="text-sm text-muted-foreground">Dust adds value 1:1 until it matches your non-dust value, then diminishing returns</p>
+					</div>
+					<div class="p-4">
+						<table class="w-full text-sm max-w-xs">
+							<thead>
+								<tr class="text-left text-muted-foreground">
+									<th class="pb-2 font-medium">Dust Added</th>
+									<th class="pb-2 font-medium text-right">Total Value</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-border">
+								<tr><td class="py-1.5 tabular-nums">0</td><td class="py-1.5 text-right tabular-nums font-medium">100</td></tr>
+								<tr><td class="py-1.5 tabular-nums">50</td><td class="py-1.5 text-right tabular-nums font-medium">150</td></tr>
+								<tr class="text-foreground"><td class="py-1.5 tabular-nums">100 <span class="text-xs text-muted-foreground">(= base)</span></td><td class="py-1.5 text-right tabular-nums font-medium">200</td></tr>
+								<tr class="text-muted-foreground"><td class="py-1.5 tabular-nums">400</td><td class="py-1.5 text-right tabular-nums">300</td></tr>
+								<tr class="text-muted-foreground"><td class="py-1.5 tabular-nums">900</td><td class="py-1.5 text-right tabular-nums">400</td></tr>
+							</tbody>
+						</table>
+						<p class="mt-3 text-xs text-muted-foreground">
+							Example with 100 base value. Optimal ratio is 1:1 dust-to-goods. Beyond that, each additional unit of value costs increasingly more dust.
+						</p>
+					</div>
+				</div>
+
+				<!-- Strategies -->
+				<div class="grid gap-4 md:grid-cols-3">
+					<!-- Tattoo Strategy -->
+					<div class="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+						<div class="px-4 py-3 border-b border-border">
+							<h2 class="text-lg font-semibold">Tattoo Farming</h2>
+							<p class="text-sm text-muted-foreground">Maximize tattoo count per shipment</p>
+						</div>
+						<div class="p-4 space-y-3 flex-1 text-sm">
+							<div>
+								<h3 class="font-medium mb-1">Allocation</h3>
+								<p class="text-muted-foreground">1 tattoo per <span class="text-foreground font-medium tabular-nums">100,000</span> goods value (crops, ores, or bars).</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Cap</h3>
+								<p class="text-muted-foreground"><span class="text-foreground font-medium tabular-nums">39</span> tattoos max at <span class="text-foreground font-medium tabular-nums">3,900,000</span> value.</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Dust</h3>
+								<p class="text-muted-foreground">Dust does <span class="font-medium text-foreground">not</span> count toward tattoo allocation. Add dust on top for bonus currency rewards.</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Shipment target</h3>
+								<p class="text-muted-foreground">Aim for exact multiples of 100k in goods value. Leftover value below the next 100k threshold is wasted.</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Port choice</h3>
+								<p class="text-muted-foreground">Pick the port with the highest average chaos/tattoo. Check the <button onclick={() => switchTab("tattoos")} class="underline text-foreground hover:text-foreground/80">Tattoos</button> tab for live rankings.</p>
+							</div>
+						</div>
+					</div>
+
+					<!-- Runegraft Strategy -->
+					<div class="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+						<div class="px-4 py-3 border-b border-border">
+							<h2 class="text-lg font-semibold">Runegraft Farming</h2>
+							<p class="text-sm text-muted-foreground">Maximize runegraft count per shipment</p>
+						</div>
+						<div class="p-4 space-y-3 flex-1 text-sm">
+							<div>
+								<h3 class="font-medium mb-1">Allocation</h3>
+								<p class="text-muted-foreground">1 runegraft per <span class="text-foreground font-medium tabular-nums">400,000</span> goods value (crops, ores, or bars). Dust does <span class="font-medium text-foreground">not</span> count.</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-2">Breakpoints</h3>
+								<table class="w-full text-xs">
+									<tbody class="divide-y divide-border">
+										<tr><td class="py-1 tabular-nums text-muted-foreground">400,000</td><td class="py-1 text-right tabular-nums font-medium">1</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">800,000</td><td class="py-1 text-right tabular-nums font-medium">2</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">1,200,000</td><td class="py-1 text-right tabular-nums font-medium">3</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">1,600,000</td><td class="py-1 text-right tabular-nums font-medium">4</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">2,000,000</td><td class="py-1 text-right tabular-nums font-medium">5</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">2,400,000</td><td class="py-1 text-right tabular-nums font-medium">6</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">2,800,000</td><td class="py-1 text-right tabular-nums font-medium">7</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">3,200,000</td><td class="py-1 text-right tabular-nums font-medium">8</td></tr>
+										<tr><td class="py-1 tabular-nums text-muted-foreground">3,600,000</td><td class="py-1 text-right tabular-nums font-medium">9 <span class="text-muted-foreground font-normal">(max)</span></td></tr>
+									</tbody>
+								</table>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Port choice</h3>
+								<p class="text-muted-foreground">Pick the port with the highest average chaos/runegraft. Check the <button onclick={() => switchTab("runegrafts")} class="underline text-foreground hover:text-foreground/80">Runegrafts</button> tab for live rankings.</p>
+							</div>
+						</div>
+					</div>
+
+					<!-- Currency Strategy -->
+					<div class="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+						<div class="px-4 py-3 border-b border-border">
+							<h2 class="text-lg font-semibold">Currency Farming</h2>
+							<p class="text-sm text-muted-foreground">Maximize currency rarity via large shipments</p>
+						</div>
+						<div class="p-4 space-y-3 flex-1 text-sm">
+							<div>
+								<h3 class="font-medium mb-1">How it works</h3>
+								<p class="text-muted-foreground">Higher shipment value = rarer currency in returns. Capped at <span class="text-foreground font-medium tabular-nums">800</span> currency items per shipment.</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Benchmarks</h3>
+								<p class="text-muted-foreground">
+									~<span class="text-foreground font-medium tabular-nums">700k</span> for ~50% chance at a Divine Orb.<br/>
+									~<span class="text-foreground font-medium tabular-nums">50M</span> for ~2.5 Mirror Shards on average.
+								</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Shipment target</h3>
+								<p class="text-muted-foreground"><span class="text-foreground font-medium tabular-nums">50,000,000</span> hard cap. Optimal split: 25M in bars + 25M in dust (1:1 ratio).</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Port choice</h3>
+								<p class="text-muted-foreground">All ports have equal currency odds since 3.28. Pick any, or pick one with a good quota multiplier for bonus value.</p>
+							</div>
+							<div>
+								<h3 class="font-medium mb-1">Quota bonus</h3>
+								<p class="text-muted-foreground">Fulfilling the port's requested resource quota adds a multiplier on top of shipment value (shown as green % in-game).</p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<p class="text-center text-xs text-muted-foreground">
+					Based on <a href="https://www.reddit.com/r/pathofexile/comments/1rrpdur/" target="_blank" rel="noopener" class="underline hover:text-foreground">EnriadHodor's 3.28 cheatsheet</a> and community data. Values may change with patches.
+				</p>
 			</div>
 		{/if}
 	</main>
+
+	<footer class="border-t border-border mt-12 py-6 px-4">
+		<div class="mx-auto max-w-5xl flex flex-col items-center gap-2 text-sm text-muted-foreground sm:flex-row sm:justify-between">
+			<span>Chris Palmer</span>
+			<div class="flex items-center gap-4">
+				<a href="/about" class="hover:text-foreground transition-colors">About</a>
+				<a href="https://github.com/chreez/exiled" target="_blank" rel="noopener" class="hover:text-foreground transition-colors">GitHub</a>
+				<a href="https://instagram.com/rhythm_hawk" target="_blank" rel="noopener" class="hover:text-foreground transition-colors">Instagram</a>
+			</div>
+			<span>&copy; {new Date().getFullYear()}</span>
+		</div>
+	</footer>
 </div>

@@ -1,0 +1,281 @@
+{
+  "snapshotDate": "2026-03-24T05:00:55Z",
+  "league": "mirage",
+  "data": {
+    "ports": [
+      {
+        "port": "pondium",
+        "label": "Pondium",
+        "attribute": "INT",
+        "avg_chaos_per_runegraft": 259.43,
+        "avg_divine_per_runegraft": 0.963,
+        "total_runegrafts": 12,
+        "priced_runegrafts": 12,
+        "runegrafts": [
+          {
+            "runegraft_name": "Runegraft of Connection",
+            "trade_id": "runegraft-of-connection",
+            "chaos_value": 18.87,
+            "divine_value": 0.07,
+            "description": "Link Skills have 50% increased range"
+          },
+          {
+            "runegraft_name": "Runegraft of Resurgence",
+            "trade_id": "runegraft-of-resurgence",
+            "chaos_value": 17.67,
+            "divine_value": 0.0656,
+            "description": "Arcane Surge also grants 15% increased Life Regeneration Rate to you"
+          },
+          {
+            "runegraft_name": "Runegraft of the Spellbound",
+            "trade_id": "runegraft-of-the-spellbound",
+            "chaos_value": 19.87,
+            "divine_value": 0.0738,
+            "description": "Spells have Added Spell Damage equal to 30% of Physical Damage of your Equipped Two Handed Weapon"
+          },
+          {
+            "runegraft_name": "Runegraft of the Novamark",
+            "trade_id": "runegraft-of-the-novamark",
+            "chaos_value": 17.63,
+            "divine_value": 0.0654,
+            "description": "Nova Spells Cast at a Marked target instead of around you if possible"
+          },
+          {
+            "runegraft_name": "Runegraft of the Witchmark",
+            "trade_id": "runegraft-of-the-witchmark",
+            "chaos_value": 17.03,
+            "divine_value": 0.0632,
+            "description": "Spells Cost +8% of Life; Spells deal added Chaos Damage equal to 2% of your maximum Life"
+          },
+          {
+            "runegraft_name": "Runegraft of Loyalty",
+            "trade_id": "runegraft-of-loyalty",
+            "chaos_value": 18.76,
+            "divine_value": 0.0696,
+            "description": "40% chance for Elemental Ailments inflicted on you to be inflicted on a nearby Minion instead"
+          },
+          {
+            "runegraft_name": "Runegraft of Treachery",
+            "trade_id": "runegraft-of-treachery",
+            "chaos_value": 38.55,
+            "divine_value": 0.1431,
+            "description": "Auras from your Skills which affect Allies also affect Enemies; 15% increased Reservation Efficiency of Skills"
+          },
+          {
+            "runegraft_name": "Runegraft of Time",
+            "trade_id": "runegraft-of-time",
+            "chaos_value": 19.76,
+            "divine_value": 0.0733,
+            "description": "20% chance for Skills to not consume a Cooldown on use"
+          },
+          {
+            "runegraft_name": "Runegraft of Blasphemy",
+            "trade_id": "runegraft-of-blasphemy",
+            "chaos_value": 18.95,
+            "divine_value": 0.0703,
+            "description": "30% chance to Curse non-Cursed Enemies with a random Hex on Hit"
+          },
+          {
+            "runegraft_name": "Runegraft of the Warp",
+            "trade_id": "runegraft-of-the-warp",
+            "chaos_value": 2284,
+            "divine_value": 8.4782,
+            "description": "Debuffs on you expire 30% faster; Buffs on you expire 30% slower"
+          },
+          {
+            "runegraft_name": "Runegraft of the Fortress",
+            "trade_id": "runegraft-of-the-fortress",
+            "chaos_value": 604.7,
+            "divine_value": 2.2446,
+            "description": "10% reduced Attributes; 40% increased Global Defences"
+          },
+          {
+            "runegraft_name": "Runegraft of Gemcraft",
+            "trade_id": "runegraft-of-gemcraft",
+            "chaos_value": 37.4,
+            "divine_value": 0.1388,
+            "description": "+1 to Level of all non-Exceptional Support Gems"
+          }
+        ]
+      },
+      {
+        "port": "riben_fell",
+        "label": "Riben Fell",
+        "attribute": "DEX",
+        "avg_chaos_per_runegraft": 81.49,
+        "avg_divine_per_runegraft": 0.3025,
+        "total_runegrafts": 10,
+        "priced_runegrafts": 10,
+        "runegrafts": [
+          {
+            "runegraft_name": "Runegraft of the Sinistral",
+            "trade_id": "runegraft-of-the-sinistral",
+            "chaos_value": 19.4,
+            "divine_value": 0.072,
+            "description": "10% more Attack Speed with Off Hand"
+          },
+          {
+            "runegraft_name": "Runegraft of the Bound",
+            "trade_id": "runegraft-of-the-bound",
+            "chaos_value": 18.74,
+            "divine_value": 0.0696,
+            "description": "20% increased bonuses gained from Equipped Gloves; 20% reduced bonuses gained from Equipped Boots"
+          },
+          {
+            "runegraft_name": "Runegraft of Refraction",
+            "trade_id": "runegraft-of-refraction",
+            "chaos_value": 18.27,
+            "divine_value": 0.0678,
+            "description": "Fire at most 1 Projectile; Projectiles Fork; Projectiles Chain an additional time"
+          },
+          {
+            "runegraft_name": "Runegraft of the Imbued",
+            "trade_id": "runegraft-of-the-imbued",
+            "chaos_value": 19.94,
+            "divine_value": 0.074,
+            "description": "Tinctures applied to you have 30% increased Effect while affected by no Flasks"
+          },
+          {
+            "runegraft_name": "Runegraft of the Agile",
+            "trade_id": "runegraft-of-the-agile",
+            "chaos_value": 17.62,
+            "divine_value": 0.0654,
+            "description": "Elusive's Effect on you is increased instead for the first 2 seconds"
+          },
+          {
+            "runegraft_name": "Runegraft of Suffering",
+            "trade_id": "runegraft-of-suffering",
+            "chaos_value": 19.58,
+            "divine_value": 0.0727,
+            "description": "50% increased Damage with Damaging Ailments you inflict while you are affected by the same Ailment"
+          },
+          {
+            "runegraft_name": "Runegraft of Quaffing",
+            "trade_id": "runegraft-of-quaffing",
+            "chaos_value": 18.58,
+            "divine_value": 0.069,
+            "description": "Non-instant Mana Recovery from Flasks is also Recovered as Life; 25% reduced Mana Recovery from Flasks"
+          },
+          {
+            "runegraft_name": "Runegraft of Rotblood",
+            "trade_id": "runegraft-of-rotblood",
+            "chaos_value": 40.62,
+            "divine_value": 0.1508,
+            "description": "Enemies Poisoned by you have 10% of Physical Damage they deal converted to Chaos"
+          },
+          {
+            "runegraft_name": "Runegraft of the Fortress",
+            "trade_id": "runegraft-of-the-fortress",
+            "chaos_value": 604.7,
+            "divine_value": 2.2446,
+            "description": "10% reduced Attributes; 40% increased Global Defences"
+          },
+          {
+            "runegraft_name": "Runegraft of Gemcraft",
+            "trade_id": "runegraft-of-gemcraft",
+            "chaos_value": 37.4,
+            "divine_value": 0.1388,
+            "description": "+1 to Level of all non-Exceptional Support Gems"
+          }
+        ]
+      },
+      {
+        "port": "kalguur",
+        "label": "Kalguur",
+        "attribute": "STR",
+        "avg_chaos_per_runegraft": 70.91,
+        "avg_divine_per_runegraft": 0.2632,
+        "total_runegrafts": 12,
+        "priced_runegrafts": 12,
+        "runegrafts": [
+          {
+            "runegraft_name": "Runegraft of the River",
+            "trade_id": "runegraft-of-the-river",
+            "chaos_value": 19.83,
+            "divine_value": 0.0736,
+            "description": "20% chance on reaching Low Life to recover to Full Life"
+          },
+          {
+            "runegraft_name": "Runegraft of the Combatant",
+            "trade_id": "runegraft-of-the-combatant",
+            "chaos_value": 20.9,
+            "divine_value": 0.0776,
+            "description": "50% increased Attack Damage against Enemies with a higher percentage of their Life remaining than you"
+          },
+          {
+            "runegraft_name": "Runegraft of the Soulwick",
+            "trade_id": "runegraft-of-the-soulwick",
+            "chaos_value": 25.72,
+            "divine_value": 0.0955,
+            "description": "Gain 1 Vaal Soul per second"
+          },
+          {
+            "runegraft_name": "Runegraft of Restitching",
+            "trade_id": "runegraft-of-restitching",
+            "chaos_value": 18.32,
+            "divine_value": 0.068,
+            "description": "40% of Damage taken from Critical Strikes Recouped as Life"
+          },
+          {
+            "runegraft_name": "Runegraft of Bellows",
+            "trade_id": "runegraft-of-bellows",
+            "chaos_value": 19.23,
+            "divine_value": 0.0714,
+            "description": "100% increased Warcry Speed if you have not Warcried Recently"
+          },
+          {
+            "runegraft_name": "Runegraft of the Jeweller",
+            "trade_id": "runegraft-of-the-jeweller",
+            "chaos_value": 18.45,
+            "divine_value": 0.0685,
+            "description": "10% increased Damage for each unlinked Socket in Equipped Two Handed Weapon"
+          },
+          {
+            "runegraft_name": "Runegraft of Stability",
+            "trade_id": "runegraft-of-stability",
+            "chaos_value": 28.96,
+            "divine_value": 0.1075,
+            "description": "Your Lucky or Unlucky effects are instead Unexciting"
+          },
+          {
+            "runegraft_name": "Runegraft of Consecration",
+            "trade_id": "runegraft-of-consecration",
+            "chaos_value": 18.91,
+            "divine_value": 0.0702,
+            "description": "Consecrated Ground you create grants 30% increased Mana Regeneration Rate to you and Allies"
+          },
+          {
+            "runegraft_name": "Runegraft of Fury",
+            "trade_id": "runegraft-of-fury",
+            "chaos_value": 20.16,
+            "divine_value": 0.0748,
+            "description": "Gain 3 Rage when you use a Life Flask"
+          },
+          {
+            "runegraft_name": "Runegraft of Rallying",
+            "trade_id": "runegraft-of-rallying",
+            "chaos_value": 18.36,
+            "divine_value": 0.0682,
+            "description": "Gain 1 Fortification per 5 Valour consumed to place a Banner"
+          },
+          {
+            "runegraft_name": "Runegraft of the Fortress",
+            "trade_id": "runegraft-of-the-fortress",
+            "chaos_value": 604.7,
+            "divine_value": 2.2446,
+            "description": "10% reduced Attributes; 40% increased Global Defences"
+          },
+          {
+            "runegraft_name": "Runegraft of Gemcraft",
+            "trade_id": "runegraft-of-gemcraft",
+            "chaos_value": 37.4,
+            "divine_value": 0.1388,
+            "description": "+1 to Level of all non-Exceptional Support Gems"
+          }
+        ]
+      }
+    ],
+    "divine_chaos_ratio": 0.003712,
+    "cachedAt": "2026-03-24T04:56:21.032Z"
+  }
+}
