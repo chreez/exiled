@@ -61,7 +61,8 @@
 	const chaosFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 	const divineFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-	const VISIBLE_ITEMS = 7;
+	const VISIBLE_TATTOOS = 8;
+	const VISIBLE_RUNEGRAFTS = 4;
 	const ITEM_ROW_HEIGHT = 46; // px per item row (name + description + padding)
 
 
@@ -306,7 +307,7 @@
 								</div>
 							</div>
 
-							<div class="border-t border-border flex-1 overflow-y-auto snap-y snap-mandatory" style="max-height: {Math.min(port.tattoos.length, VISIBLE_ITEMS) * ITEM_ROW_HEIGHT}px">
+							<div class="border-t border-border flex-1 overflow-y-auto snap-y snap-mandatory" style="max-height: {Math.min(port.tattoos.length, VISIBLE_TATTOOS) * ITEM_ROW_HEIGHT}px">
 								<div class="divide-y divide-border">
 									{#each port.tattoos.toSorted((a, b) => (b.chaos_value ?? -1) - (a.chaos_value ?? -1)) as tattoo}
 										<div class="px-4 py-2 text-sm snap-start">
@@ -414,7 +415,7 @@
 								</div>
 							</div>
 
-							<div class="border-t border-border flex-1 overflow-y-auto snap-y snap-mandatory" style="max-height: {Math.min(port.runegrafts.length, VISIBLE_ITEMS) * ITEM_ROW_HEIGHT}px">
+							<div class="border-t border-border flex-1 overflow-y-auto snap-y snap-mandatory" style="max-height: {Math.min(port.runegrafts.length, VISIBLE_RUNEGRAFTS) * ITEM_ROW_HEIGHT}px">
 								<div class="divide-y divide-border">
 									{#each port.runegrafts.toSorted((a, b) => (b.chaos_value ?? -1) - (a.chaos_value ?? -1)) as runegraft}
 										<div class="px-4 py-2 text-sm snap-start">
