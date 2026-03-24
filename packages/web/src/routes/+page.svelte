@@ -257,7 +257,7 @@
 
 	{#if snapshotActive}
 		<div class="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-700 dark:text-amber-400">
-			Viewing snapshot data from {snapshotDate ? new Date(snapshotDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "unknown date"}
+			Viewing snapshot from {snapshotDate ? new Date(snapshotDate).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "unknown date"}
 			{#if snapshotLeague}
 				<span class="text-amber-600/80 dark:text-amber-500/80">({snapshotLeague} league)</span>
 			{/if}
