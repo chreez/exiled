@@ -134,6 +134,8 @@ Default: `mirage` (current challenge league). League names must match poe.ninja'
 ## Git Workflow
 
 - **Commit after every completed task.** When a backlog task reaches Done, all changed files for that task must be committed before moving on.
+- **Clean git status between requests.** At the end of every user request, `git status` must show a clean working tree. Commit or stash all changes before responding that work is done.
+- **Never push or deploy to mainline.** The user handles `git push` themselves. Do not run `git push` or trigger deploys.
 - **Commit messages** should reference the task (e.g., `task-3: add dust calculation module`). Keep them concise and descriptive.
 - **Clean git status is mandatory.** After finishing a task, `git status` should show no unstaged/untracked work files. Stash or commit everything.
 - **Stage intentionally.** Add specific files related to the task — avoid `git add -A` unless everything in the working tree belongs to the current task.
